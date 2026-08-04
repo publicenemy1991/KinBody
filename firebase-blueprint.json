@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile configuration and onboarding status",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "age": { "type": "number" },
+        "sex": { "type": "string" },
+        "heightCm": { "type": "number" },
+        "weightKg": { "type": "number" },
+        "unitSystem": { "type": "string" },
+        "colorTheme": { "type": "string" },
+        "activityLevel": { "type": "string" },
+        "goal": { "type": "string" },
+        "calorieTarget": { "type": "number" },
+        "proteinTargetG": { "type": "number" },
+        "carbsTargetG": { "type": "number" },
+        "fatTargetG": { "type": "number" },
+        "onboardingCompleted": { "type": "boolean" },
+        "onboardingStep": { "type": "number" }
+      }
+    },
+    "LoggedFoodEntry": {
+      "title": "LoggedFoodEntry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "mealType": { "type": "string" },
+        "foodItem": { "type": "object" },
+        "servings": { "type": "number" },
+        "loggedAt": { "type": "string" },
+        "date": { "type": "string" }
+      }
+    },
+    "WeightEntry": {
+      "title": "WeightEntry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "weightKg": { "type": "number" },
+        "note": { "type": "string" },
+        "linkedScanId": { "type": "string" }
+      }
+    },
+    "BodyScanEntry": {
+      "title": "BodyScanEntry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "title": { "type": "string" },
+        "weightKg": { "type": "number" },
+        "bodyFatPercent": { "type": "number" },
+        "skeletalMuscleKg": { "type": "number" },
+        "leanMassKg": { "type": "number" },
+        "fatMassKg": { "type": "number" },
+        "visceralFatRating": { "type": "number" },
+        "scanImageUrl": { "type": "string" },
+        "source": { "type": "string" },
+        "loggedAt": { "type": "string" }
+      }
+    },
+    "ActivityLogEntry": {
+      "title": "ActivityLogEntry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "activityType": { "type": "string" },
+        "durationMinutes": { "type": "number" },
+        "distanceKm": { "type": "number" },
+        "steps": { "type": "number" },
+        "activeCalories": { "type": "number" },
+        "isConfirmed": { "type": "boolean" },
+        "loggedAt": { "type": "string" }
+      }
+    }
+  }
+}
