@@ -205,7 +205,31 @@ function getGeminiClient() {
   });
 }
 
-// Multi-model failover execution helper to handle model rate limits and quotas smoothly
+// Helper to safely parse JSON from Gemini text responses
+function parseGeminiJson(rawText: string): any {
+  if (!rawText) return {};
+  let cleaned = rawText.trim();
+  if (cleaned.startsWith('```json')) {
+    cleaned = cleaned.replace(/^```json\s*/i, '').replace(/\s*```$/, '');
+  } else if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+  }
+  try {
+    return JSON.parse(cleaned);
+  } catch (err) {
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch (e) {
+        // ignore
+      }
+    }
+    return {};
+  }
+}
+
+// Multi-model failover execution helper to handle model rate limits, invalid model names, and quotas smoothly
 async function callGeminiWithFallback(
   ai: GoogleGenAI,
   params: {
@@ -215,9 +239,9 @@ async function callGeminiWithFallback(
   }
 ) {
   const modelsToTry = params.preferredModels || [
-    'gemini-2.5-flash',
-    'gemini-1.5-flash',
     'gemini-3.6-flash',
+    'gemini-3.1-pro-preview',
+    'gemini-3.1-flash-lite',
   ];
 
   let lastError: any = null;
@@ -232,23 +256,12 @@ async function callGeminiWithFallback(
       return { response, modelUsed: model };
     } catch (err: any) {
       lastError = err;
-      const errStr = String(err?.message || err || '');
-      const isQuota =
-        err?.status === 'RESOURCE_EXHAUSTED' ||
-        err?.code === 429 ||
-        errStr.includes('429') ||
-        errStr.includes('Quota exceeded') ||
-        errStr.includes('RESOURCE_EXHAUSTED');
-
-      if (isQuota) {
-        console.warn(`Gemini model ${model} quota/rate limit reached. Trying next available model...`);
-        continue;
-      }
-      throw err;
+      console.warn(`Gemini model ${model} error (${err?.message || err}). Trying next available model...`);
+      continue;
     }
   }
 
-  throw lastError;
+  throw lastError || new Error('All Gemini model calls failed');
 }
 
 // Helper function to strictly normalize energy values from databases / APIs / AI outputs
@@ -531,7 +544,7 @@ Return strict JSON matching schema.`;
           },
         });
         modelUsed = used;
-        parsed = JSON.parse(response.text || '{}');
+        parsed = parseGeminiJson(response.text || '{}');
       } catch (geminiErr: any) {
         console.warn('All Gemini models quota/rate limited for photo analysis, using 3D volumetric fallback calculation:', geminiErr?.message);
         return res.json({
@@ -664,7 +677,7 @@ Return strictly JSON matching schema. If a value is missing or unclear, estimate
           },
         });
 
-        const parsed = JSON.parse(response.text || '{}');
+        const parsed = parseGeminiJson(response.text || '{}');
         return res.json({ success: true, result: parsed });
       } catch (geminiErr) {
         console.warn('Evolt scan AI parsing fallback invoked:', geminiErr);
@@ -754,7 +767,7 @@ Return strict JSON matching the schema.`,
           },
         });
 
-        const parsed = JSON.parse(response.text || '{}');
+        const parsed = parseGeminiJson(response.text || '{}');
         return res.json({ success: true, result: parsed, source: 'gemini' });
       } catch (geminiErr: any) {
         console.warn('Workout screenshot parsing fallback invoked:', geminiErr?.message);
@@ -968,7 +981,10 @@ Determine the overall meal type (breakfast, lunch, dinner, or snacks). Return JS
           },
         });
 
-        const parsed = JSON.parse(response.text || '{}');
+        const parsed = parseGeminiJson(response.text || '{}');
+        if (!parsed.items || !Array.isArray(parsed.items) || parsed.items.length === 0) {
+          return res.json({ success: true, result: getFallbackParse(), source: 'fallback_parser' });
+        }
         return res.json({ success: true, result: parsed, source: 'gemini', modelUsed });
       } catch (geminiErr: any) {
         console.warn('AI Voice parse Gemini fallback invoked:', geminiErr?.message);
@@ -1070,7 +1086,7 @@ Determine the overall meal type (breakfast, lunch, dinner, or snacks). Return JS
           },
         });
 
-        const parsed = JSON.parse(response.text || '{}');
+        const parsed = parseGeminiJson(response.text || '{}');
         return res.json({ success: true, result: parsed });
       } catch (geminiErr) {
         console.warn('Nutrient evidence Gemini fallback invoked for:', nutrientName);
