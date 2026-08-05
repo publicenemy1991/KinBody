@@ -75,7 +75,7 @@ export const PWAInstallPrompt: React.FC = () => {
       <div className="fixed top-0 inset-x-0 z-50 bg-amber-500 text-black px-4 py-2 text-xs font-bold flex items-center justify-between shadow-lg">
         <div className="flex items-center space-x-2">
           <WifiOff className="w-4 h-4 shrink-0" />
-          <span>You are currently offline. Displaying cached Recomp data.</span>
+          <span>You are currently offline. Displaying cached kinbody data.</span>
         </div>
         <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded font-mono">Offline Mode</span>
       </div>
@@ -98,7 +98,7 @@ export const PWAInstallPrompt: React.FC = () => {
           </div>
           <div>
             <h4 className="text-xs font-black text-white flex items-center gap-1.5">
-              Install Recomp App
+              Install kinbody App
               <span className="text-[9px] font-extrabold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.2 rounded border border-emerald-500/30">
                 PWA
               </span>
@@ -145,7 +145,7 @@ export const PWAInstallPrompt: React.FC = () => {
             <div className="space-y-1">
               <h3 className="text-base font-black text-white">Install on iPhone / iPad</h3>
               <p className="text-xs text-zinc-400">
-                Follow these simple steps in Safari to add Recomp to your Home Screen:
+                Follow these simple steps in Safari to add kinbody to your Home Screen:
               </p>
             </div>
 

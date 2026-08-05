@@ -1,6 +1,6 @@
 {
-  "name": "Recomp - Body Recomposition & Macro Tracker",
-  "short_name": "Recomp",
+  "name": "kinbody - Track. Understand. Evolve.",
+  "short_name": "kinbody",
   "description": "Fast food logging, protein & calorie tracking, Evolt body scan analytics, and strength workouts.",
   "start_url": "/",
   "display": "standalone",

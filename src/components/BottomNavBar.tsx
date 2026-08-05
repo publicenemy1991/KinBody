@@ -44,12 +44,12 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
               )}
               <div className="relative z-10 flex flex-col items-center">
                 <motion.div
-                  animate={{ scale: isActive ? 1.1 : 1, y: isActive ? -1 : 0 }}
+                  animate={{ scale: isActive ? 1.08 : 1 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                 >
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-emerald-400' : 'text-zinc-400'}`} />
+                  <Icon className={`w-5 h-5 ${isActive ? 'text-[#00D084]' : 'text-zinc-500'}`} />
                 </motion.div>
-                <span className={`text-[11px] mt-1 tracking-tight ${isActive ? 'text-white font-bold' : 'text-zinc-400'}`}>
+                <span className={`text-[11px] mt-1 tracking-tight ${isActive ? 'text-[#00D084] font-semibold' : 'text-zinc-500 font-normal'}`}>
                   {tab.label}
                 </span>
               </div>

@@ -123,7 +123,8 @@ export default function App() {
             setAuthState('signed-in-incomplete');
           }
         } catch (err) {
-          console.error('Error fetching Firestore user profile on boot:', err);
+          console.warn('Initializing default profile due to permission or connection state:', err);
+          setUserProfile(INITIAL_USER_PROFILE);
           setAuthState('signed-in-incomplete');
         }
       } else {

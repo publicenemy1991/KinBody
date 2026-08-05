@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Check, Sparkles, ChevronRight, Scale, Flame } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, ArrowRight, Sparkles, Scale, Flame } from 'lucide-react';
 import { UserProfile, UserGoal, UnitSystem } from '../types';
+import { KinbodyIcon, KinbodyLogo } from './KinbodyLogo';
 
 interface OnboardingWizardProps {
   initialProfile: UserProfile;
@@ -14,7 +15,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   onSaveStepProfile,
   onCompleteOnboarding,
 }) => {
-  const [step, setStep] = useState<number>(initialProfile.onboardingStep || 1);
+  const [step, setStep] = useState<number>(initialProfile.onboardingStep || 0);
   const [profile, setProfile] = useState<UserProfile>({
     ...initialProfile,
     unitSystem: initialProfile.unitSystem || 'metric',
@@ -23,7 +24,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   const isImperial = profile.unitSystem === 'imperial';
 
   // State for raw display values (begin empty unless existing profile has non-zero value)
-  const [nameInput, setNameInput] = useState<string>(profile.name || '');
+  const initialNameParts = (profile.name || '').trim().split(' ');
+  const [firstNameInput, setFirstNameInput] = useState<string>(initialNameParts[0] || '');
+  const [lastNameInput, setLastNameInput] = useState<string>(initialNameParts.slice(1).join(' ') || '');
   const [ageInput, setAgeInput] = useState<string>(profile.age > 0 ? profile.age.toString() : '');
   const [weightInput, setWeightInput] = useState<string>(
     profile.weightKg > 0
@@ -62,8 +65,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
   const handleNextFromStep2 = () => {
     setValidationError(null);
-    if (!nameInput.trim()) {
-      setValidationError('Please enter your name.');
+    if (!firstNameInput.trim()) {
+      setValidationError('Please enter your first name.');
       return;
     }
     const age = parseInt(ageInput);
@@ -100,9 +103,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
     const pro = Math.round(roundedWeight * 2.0);
 
+    const fullName = `${firstNameInput.trim()} ${lastNameInput.trim()}`.trim();
+
     const updated = {
       ...profile,
-      name: nameInput.trim(),
+      name: fullName,
       age,
       weightKg: roundedWeight,
       heightCm: roundedHeight,
@@ -141,37 +146,98 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       transition={{ duration: 0.3, ease: 'easeOut' }}
       className="fixed inset-0 z-50 bg-[#0D0E12] text-white flex flex-col justify-between sm:max-w-md sm:mx-auto overflow-y-auto sm:border-x sm:border-white/10"
     >
-      {/* Header Progress */}
-      <div className="sticky top-0 z-20 bg-[#0D0E12]/90 backdrop-blur-md px-5 py-4 flex items-center justify-between border-b border-white/10">
-        {step > 1 ? (
-          <button
-            onClick={() => goToStep(step - 1)}
-            className="w-9 h-9 rounded-full bg-[#181A20] border border-white/10 flex items-center justify-center text-zinc-300 hover:text-white transition-all active:scale-95"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-        ) : (
-          <div className="w-9" />
-        )}
+      {/* Header Progress (Only visible for steps 1, 2, 3) */}
+      {step > 0 && (
+        <div className="sticky top-0 z-20 bg-[#0D0E12]/90 backdrop-blur-md px-5 py-4 flex items-center justify-between border-b border-white/10">
+          {step > 1 ? (
+            <button
+              onClick={() => goToStep(step - 1)}
+              className="w-9 h-9 rounded-full bg-[#181A20] border border-white/10 flex items-center justify-center text-zinc-300 hover:text-white transition-all active:scale-95"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={() => goToStep(0)}
+              className="w-9 h-9 rounded-full bg-[#181A20] border border-white/10 flex items-center justify-center text-zinc-300 hover:text-white transition-all active:scale-95"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          )}
 
-        <div className="flex items-center space-x-2">
-          <span className="text-[11px] font-bold text-zinc-400">Step {step} of {totalSteps}</span>
-          <div className="flex space-x-1.5">
-            {Array.from({ length: totalSteps }).map((_, idx) => (
-              <div
-                key={idx}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  idx + 1 <= step ? 'w-5 bg-emerald-400' : 'w-1.5 bg-zinc-800'
-                }`}
-              />
-            ))}
+          <div className="flex items-center space-x-2">
+            <span className="text-[11px] font-bold text-zinc-400">Step {step} of {totalSteps}</span>
+            <div className="flex space-x-1.5">
+              {Array.from({ length: totalSteps }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    idx + 1 <= step ? 'w-5 bg-[#00D084]' : 'w-1.5 bg-zinc-800'
+                  }`}
+                />
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div className="w-9" />
-      </div>
+          <div className="w-9" />
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
+        {/* Step 0: Welcome Splash Screen matching Image 1 */}
+        {step === 0 && (
+          <motion.div
+            key="step0"
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.3 }}
+            className="px-6 py-10 flex-1 flex flex-col justify-between items-center text-center bg-black"
+          >
+            {/* Top Status Space */}
+            <div className="w-full flex justify-end">
+              <span className="text-[10px] text-zinc-600 font-mono">9:41</span>
+            </div>
+
+            {/* Middle Logo & Taglines */}
+            <div className="my-auto py-12 flex flex-col items-center justify-center space-y-8">
+              <KinbodyIcon className="w-24 h-24 sm:w-28 sm:h-28" />
+              
+              <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight font-sans">
+                kinbody
+              </h1>
+
+              <div className="space-y-2 max-w-xs mx-auto pt-4">
+                <h2 className="text-lg font-bold text-white tracking-wide">
+                  Track. Understand. Evolve.
+                </h2>
+                <p className="text-xs text-zinc-400 font-normal leading-relaxed">
+                  Your meals, body and activity.<br />All in one place.
+                </p>
+              </div>
+            </div>
+
+            {/* Bottom Button & Page Indicators */}
+            <div className="w-full space-y-6 pb-4">
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={() => goToStep(1)}
+                className="w-full bg-[#00D084] hover:bg-[#00B370] text-black font-extrabold py-4 rounded-2xl transition-all shadow-xl shadow-[#00D084]/20 text-base flex items-center justify-center space-x-2"
+              >
+                <span>Get Started</span>
+                <ArrowRight className="w-5 h-5 stroke-[2.5]" />
+              </motion.button>
+
+              {/* 3 Pagination Dots */}
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-2 h-2 rounded-full bg-[#00D084]" />
+                <div className="w-2 h-2 rounded-full bg-zinc-700" />
+                <div className="w-2 h-2 rounded-full bg-zinc-700" />
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Step 1: Main Goal */}
         {step === 1 && (
           <motion.div
@@ -292,17 +358,31 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-xs text-zinc-400 font-semibold block mb-1">
-                    Your Name
-                  </label>
-                  <input
-                    type="text"
-                    value={nameInput}
-                    onChange={(e) => setNameInput(e.target.value)}
-                    placeholder="Enter your name"
-                    className="w-full bg-[#181A20] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-400 placeholder-zinc-600"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-zinc-400 font-semibold block mb-1">
+                      First Name
+                    </label>
+                    <input
+                      type="text"
+                      value={firstNameInput}
+                      onChange={(e) => setFirstNameInput(e.target.value)}
+                      placeholder="e.g. Alex"
+                      className="w-full bg-[#181A20] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-400 placeholder-zinc-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-zinc-400 font-semibold block mb-1">
+                      Last Name
+                    </label>
+                    <input
+                      type="text"
+                      value={lastNameInput}
+                      onChange={(e) => setLastNameInput(e.target.value)}
+                      placeholder="e.g. Morgan"
+                      className="w-full bg-[#181A20] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-400 placeholder-zinc-600"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">

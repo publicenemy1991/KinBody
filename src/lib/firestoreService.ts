@@ -10,7 +10,7 @@ import {
   getDocs,
   writeBatch,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import {
   UserProfile,
   WeightEntry,
@@ -46,6 +46,7 @@ export const DEFAULT_EMPTY_PROFILE: UserProfile = {
 
 // --- PROFILE ---
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
+  if (!userId) return null;
   try {
     const profileRef = doc(db, 'users', userId);
     const snap = await getDoc(profileRef);
@@ -53,22 +54,40 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
       return { ...DEFAULT_EMPTY_PROFILE, ...snap.data() } as UserProfile;
     }
     return null;
-  } catch (error) {
-    console.error('Error fetching user profile:', error);
+  } catch (error: any) {
+    if (error?.code === 'permission-denied' || error?.message?.includes('permissions') || error?.message?.includes('permission-denied')) {
+      console.warn('Firestore permission check pending or denied for user profile:', userId);
+    } else {
+      console.error('Error fetching user profile:', error);
+    }
     return null;
   }
 }
 
 export async function saveUserProfile(userId: string, profile: Partial<UserProfile>): Promise<void> {
-  const profileRef = doc(db, 'users', userId);
-  await setDoc(profileRef, { ...profile, userId, updatedAt: new Date().toISOString() }, { merge: true });
+  if (!userId) return;
+  try {
+    const profileRef = doc(db, 'users', userId);
+    await setDoc(profileRef, { ...profile, userId, updatedAt: new Date().toISOString() }, { merge: true });
+  } catch (error: any) {
+    if (error?.code === 'permission-denied') {
+      console.warn('Firestore permission denied while saving profile:', error);
+    } else {
+      console.error('Error saving user profile:', error);
+    }
+  }
 }
+
 
 // --- WEIGHT ENTRIES ---
 export function subscribeWeightEntries(
   userId: string,
   onData: (entries: WeightEntry[]) => void
 ): () => void {
+  if (!userId || !auth.currentUser || auth.currentUser.uid !== userId) {
+    onData([]);
+    return () => {};
+  }
   const colRef = collection(db, 'users', userId, 'weightEntries');
   return onSnapshot(
     colRef,
@@ -81,8 +100,12 @@ export function subscribeWeightEntries(
       items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       onData(items);
     },
-    (err) => {
-      console.error('Error listening to weight entries:', err);
+    (err: any) => {
+      if (err?.code === 'permission-denied' || err?.message?.includes('permissions') || err?.message?.includes('permission-denied')) {
+        console.warn('Weight entries permission check pending or denied for user:', userId);
+      } else {
+        console.error('Error listening to weight entries:', err);
+      }
       onData([]);
     }
   );
@@ -110,6 +133,10 @@ export function subscribeBodyScans(
   userId: string,
   onData: (entries: BodyScanEntry[]) => void
 ): () => void {
+  if (!userId || !auth.currentUser || auth.currentUser.uid !== userId) {
+    onData([]);
+    return () => {};
+  }
   const colRef = collection(db, 'users', userId, 'bodyScanEntries');
   return onSnapshot(
     colRef,
@@ -121,8 +148,12 @@ export function subscribeBodyScans(
       items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       onData(items);
     },
-    (err) => {
-      console.error('Error listening to body scans:', err);
+    (err: any) => {
+      if (err?.code === 'permission-denied' || err?.message?.includes('permissions') || err?.message?.includes('permission-denied')) {
+        console.warn('Body scans permission check pending or denied for user:', userId);
+      } else {
+        console.error('Error listening to body scans:', err);
+      }
       onData([]);
     }
   );
@@ -150,6 +181,10 @@ export function subscribeActivityLogs(
   userId: string,
   onData: (entries: ActivityLogEntry[]) => void
 ): () => void {
+  if (!userId || !auth.currentUser || auth.currentUser.uid !== userId) {
+    onData([]);
+    return () => {};
+  }
   const colRef = collection(db, 'users', userId, 'activityLogs');
   return onSnapshot(
     colRef,
@@ -161,8 +196,12 @@ export function subscribeActivityLogs(
       items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       onData(items);
     },
-    (err) => {
-      console.error('Error listening to activity logs:', err);
+    (err: any) => {
+      if (err?.code === 'permission-denied' || err?.message?.includes('permissions') || err?.message?.includes('permission-denied')) {
+        console.warn('Activity logs permission check pending or denied for user:', userId);
+      } else {
+        console.error('Error listening to activity logs:', err);
+      }
       onData([]);
     }
   );
@@ -190,6 +229,10 @@ export function subscribeFoodEntries(
   userId: string,
   onData: (entries: LoggedFoodEntry[]) => void
 ): () => void {
+  if (!userId || !auth.currentUser || auth.currentUser.uid !== userId) {
+    onData([]);
+    return () => {};
+  }
   const colRef = collection(db, 'users', userId, 'foodEntries');
   return onSnapshot(
     colRef,
@@ -201,8 +244,12 @@ export function subscribeFoodEntries(
       items.sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime());
       onData(items);
     },
-    (err) => {
-      console.error('Error listening to food entries:', err);
+    (err: any) => {
+      if (err?.code === 'permission-denied' || err?.message?.includes('permissions') || err?.message?.includes('permission-denied')) {
+        console.warn('Food entries permission check pending or denied for user:', userId);
+      } else {
+        console.error('Error listening to food entries:', err);
+      }
       onData([]);
     }
   );

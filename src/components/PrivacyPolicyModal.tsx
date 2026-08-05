@@ -56,7 +56,7 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, 
               <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3.5 flex items-start space-x-3">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <p className="text-[11px] text-emerald-200">
-                  <strong>Privacy First:</strong> Recomp is built to prioritize user sovereignty. All your meal logs, weight entries, and scan details are owned completely by you.
+                  <strong>Privacy First:</strong> kinbody is built to prioritize user sovereignty. All your meal logs, weight entries, and scan details are owned completely by you.
                 </p>
               </div>
 
