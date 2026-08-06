@@ -413,8 +413,8 @@ export default function App() {
 
   // Main Application Dashboard
   return (
-    <div className="min-h-screen bg-black text-white font-sans">
-      <div className="max-w-xl mx-auto min-h-screen bg-black flex flex-col relative border-x border-white/10 shadow-2xl overflow-x-hidden">
+    <div className="app-screen min-h-screen text-white font-sans">
+      <div className="max-w-xl mx-auto min-h-screen bg-[#050706]/90 flex flex-col relative border-x border-white/10 shadow-2xl overflow-x-hidden">
         {/* Bio-Organic Topographic Background Canvas */}
         <KinbodyBioTopology />
 

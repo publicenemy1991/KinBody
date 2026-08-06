@@ -129,14 +129,19 @@ export const OnboardingIntro: React.FC<OnboardingIntroProps> = ({
           </motion.div>
         )}
 
-        {/* Stage 3: Morphing */}
+        {/* Stage 3: Morphing towards Bottom Right */}
         {stage === 'morphing' && (
-          <div className="flex flex-col items-center justify-center my-auto">
+          <motion.div
+            initial={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+            animate={{ x: 60, y: 70, scale: 0.95 }}
+            transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col items-center justify-center my-auto"
+          >
             <LogoCompanionMorph
               onMorphComplete={handleMorphComplete}
               isReducedMotion={isReducedMotion}
             />
-          </div>
+          </motion.div>
         )}
 
         {/* Stage 4: Name Entry */}
@@ -145,21 +150,10 @@ export const OnboardingIntro: React.FC<OnboardingIntroProps> = ({
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="w-full space-y-6 pt-2"
+            className="w-full flex flex-col justify-between space-y-6 pt-2"
           >
-            {/* Companion Guide with Speech Bubble */}
-            <KinbodyCompanion
-              size="lg"
-              message={
-                <span>
-                  Hi there! 👋<br />
-                  What should I call you?
-                </span>
-              }
-            />
-
-            {/* Name Input Form */}
-            <div className="space-y-4 pt-2">
+            {/* Top Area: Title, Subtitle & Input */}
+            <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-black text-white tracking-tight">
                   What should I call you?
@@ -190,9 +184,23 @@ export const OnboardingIntro: React.FC<OnboardingIntroProps> = ({
                     }
                   }}
                   placeholder="Your name"
-                  className="w-full bg-[#12141A] border border-white/10 rounded-2xl pl-11 pr-4 py-4 text-white text-base focus:outline-none focus:border-[#16E39B] placeholder-zinc-600 transition-colors"
+                  className="w-full bg-[#12141A] border border-white/10 rounded-2xl pl-11 pr-4 py-4 text-white text-base focus:outline-none focus:border-[#16E39B] placeholder-zinc-600 transition-colors shadow-lg"
                 />
               </div>
+            </div>
+
+            {/* Bottom-Right Placement: Companion Blob with Speech Bubble */}
+            <div className="pt-6 flex justify-end pr-1">
+              <KinbodyCompanion
+                size="md"
+                align="bottom-right"
+                message={
+                  <span>
+                    Hi there! 👋<br />
+                    What should I call you?
+                  </span>
+                }
+              />
             </div>
           </motion.div>
         )}

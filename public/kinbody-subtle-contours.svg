@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1600" width="100%" height="100%" fill="none">
+  <defs>
+    <!-- Subtle fade gradient masks to make contours disappear towards edges -->
+    <radialGradient id="logoHillGlow" cx="18%" cy="10%" r="50%">
+      <stop offset="0%" stop-color="#00E8A6" stop-opacity="0.30"/>
+      <stop offset="40%" stop-color="#00E8A6" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#00E8A6" stop-opacity="0.0"/>
+    </radialGradient>
+
+    <radialGradient id="ctaHillGlow" cx="80%" cy="50%" r="45%">
+      <stop offset="0%" stop-color="#00E8A6" stop-opacity="0.32"/>
+      <stop offset="45%" stop-color="#00E8A6" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#00E8A6" stop-opacity="0.0"/>
+    </radialGradient>
+
+    <linearGradient id="diagonalFade" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00E8A6" stop-opacity="0.25"/>
+      <stop offset="30%" stop-color="#00E8A6" stop-opacity="0.08"/>
+      <stop offset="70%" stop-color="#00E8A6" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#00E8A6" stop-opacity="0.05"/>
+    </linearGradient>
+
+    <mask id="topoMask">
+      <rect x="0" y="0" width="800" height="1600" fill="url(#diagonalFade)" />
+      <rect x="0" y="0" width="800" height="1600" fill="url(#logoHillGlow)" style="mix-blend-mode: screen;" />
+      <rect x="0" y="0" width="800" height="1600" fill="url(#ctaHillGlow)" style="mix-blend-mode: screen;" />
+    </mask>
+  </defs>
+
+  <g mask="url(#topoMask)" stroke="#00E8A6" stroke-width="1.2" fill="none">
+    <!-- TOP LEFT LOGO CONTOUR HILL (Kinbody "K" ripple origin) -->
+    <path d="M 120 80 C 144 80, 160 96, 160 120 C 160 144, 144 160, 120 160 C 96 160, 80 144, 80 120 C 80 96, 96 80, 120 80 Z" opacity="0.35"/>
+    <path d="M 120 50 C 160 50, 190 80, 190 120 C 190 160, 160 190, 120 190 C 80 190, 50 160, 50 120 C 50 80, 80 50, 120 50 Z" opacity="0.28"/>
+    <path d="M 120 20 C 180 20, 224 64, 224 120 C 224 176, 180 220, 120 220 C 60 220, 16 176, 16 120 C 16 64, 60 20, 120 20 Z" opacity="0.22"/>
+    <path d="M 120 -12 C 204 -12, 260 44, 260 120 C 260 196, 204 252, 120 252 C 36 252, -20 196, -20 120 C -20 44, 36 -12, 120 -12 Z" opacity="0.18"/>
+    <path d="M 120 -44 C 228 -44, 296 24, 296 120 C 296 216, 228 284, 120 284 C 12 284, -56 216, -56 120 C -56 24, 12 -44, 120 -44 Z" opacity="0.14"/>
+    <path d="M 120 -76 C 252 -76, 332 4, 332 120 C 332 236, 252 316, 120 316 C -12 316, -92 236, -92 120 C -92 4, -12 -76, 120 -76 Z" opacity="0.10"/>
+
+    <!-- BIOLOGICAL MUSCLE FIBERS / DIAGONAL RIDGE DRIFT -->
+    <path d="M -100 240 Q 160 280 440 180 T 900 120" opacity="0.25"/>
+    <path d="M -100 284 Q 170 324 460 220 T 900 164" opacity="0.22"/>
+    <path d="M -100 330 Q 180 370 480 260 T 900 210" opacity="0.20"/>
+    <path d="M -100 376 Q 190 416 500 300 T 900 256" opacity="0.18"/>
+    <path d="M -100 424 Q 200 464 520 340 T 900 304" opacity="0.16"/>
+    <path d="M -100 472 Q 210 512 540 380 T 900 352" opacity="0.14"/>
+    <path d="M -100 520 Q 220 560 560 420 T 900 400" opacity="0.12"/>
+
+    <!-- LOG FOOD CTA / LOWER-RIGHT CONTOUR HILL -->
+    <path d="M 660 870 C 684 870, 700 884, 700 900 C 700 916, 684 930, 660 930 C 636 930, 620 916, 620 900 C 620 884, 636 870, 660 870 Z" opacity="0.32"/>
+    <path d="M 660 840 C 704 840, 732 864, 732 900 C 732 936, 704 960, 660 960 C 616 960, 588 936, 588 900 C 588 864, 616 840, 660 840 Z" opacity="0.28"/>
+    <path d="M 660 804 C 724 804, 768 840, 768 900 C 768 960, 724 996, 660 996 C 596 996, 552 960, 552 900 C 552 840, 596 804, 660 804 Z" opacity="0.24"/>
+    <path d="M 660 768 C 744 768, 804 816, 804 900 C 804 984, 744 1032, 660 1032 C 576 1032, 516 984, 516 900 C 516 816, 576 768, 660 768 Z" opacity="0.20"/>
+    <path d="M 660 732 C 764 732, 840 792, 840 900 C 840 1008, 764 1068, 660 1068 C 556 1068, 480 1008, 480 900 C 480 792, 556 732, 660 732 Z" opacity="0.16"/>
+    <path d="M 660 696 C 784 696, 876 768, 876 900 C 876 1032, 784 1104, 660 1104 C 536 1104, 444 1032, 444 900 C 444 768, 536 696, 660 696 Z" opacity="0.12"/>
+
+    <!-- LOWER RIPPLE FIELD (Meals & Progress section) -->
+    <path d="M -80 1120 C 120 1080, 360 1140, 580 1060 C 720 1010, 840 1040, 900 1020" opacity="0.22"/>
+    <path d="M -80 1170 C 130 1130, 370 1190, 596 1110 C 736 1060, 850 1090, 900 1070" opacity="0.20"/>
+    <path d="M -80 1220 C 140 1180, 380 1240, 612 1160 C 752 1110, 860 1140, 900 1120" opacity="0.18"/>
+    <path d="M -80 1270 C 150 1230, 390 1290, 628 1210 C 768 1160, 870 1190, 900 1170" opacity="0.16"/>
+    <path d="M -80 1320 C 160 1280, 400 1340, 644 1260 C 784 1210, 880 1240, 900 1220" opacity="0.14"/>
+    <path d="M -80 1376 C 170 1336, 410 1396, 660 1316 C 800 1266, 890 1296, 900 1276" opacity="0.12"/>
+    <path d="M -80 1432 C 180 1392, 420 1452, 676 1372 C 816 1322, 900 1352, 900 1332" opacity="0.10"/>
+    <path d="M -80 1490 C 190 1450, 430 1510, 692 1430 C 832 1380, 900 1410, 900 1390" opacity="0.08"/>
+    <path d="M -80 1550 C 200 1510, 440 1570, 708 1490 C 848 1440, 900 1470, 900 1450" opacity="0.06"/>
+    <path d="M -80 1610 C 210 1570, 450 1630, 724 1550 C 864 1500, 900 1530, 900 1510" opacity="0.04"/>
+  </g>
+</svg>
