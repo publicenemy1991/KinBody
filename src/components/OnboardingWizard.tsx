@@ -13,9 +13,8 @@ import {
   Flame,
 } from 'lucide-react';
 import { UserProfile, UserGoal, UnitSystem } from '../types';
-import { KinbodyIcon } from './KinbodyLogo';
 import { KinCompanion } from './KinCompanion';
-import { LivingParticleLogo } from './LivingParticleLogo';
+import { OnboardingIntro } from './onboarding/OnboardingIntro';
 
 interface OnboardingWizardProps {
   initialProfile: UserProfile;
@@ -165,144 +164,18 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       )}
 
       <AnimatePresence mode="wait">
-        {/* STEP 0: Living Particle Sphere Splash Screen (Matching Screen 1) */}
-        {step === 0 && (
-          <motion.div
-            key="step0"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="px-6 py-8 flex-1 flex flex-col justify-between items-center text-center bg-black"
-          >
-            {/* Status bar mock */}
-            <div className="w-full flex justify-between items-center text-zinc-600 text-xs font-mono">
-              <span>9:41</span>
-            </div>
-
-            {/* Middle: Living Particle Sphere & Animated Logo */}
-            <div className="my-auto py-6 flex flex-col items-center justify-center space-y-6">
-              <LivingParticleLogo className="w-60 h-60" />
-
-              {/* Down Arrow pointing to Kinbody logo */}
-              <motion.div
-                animate={{ y: [0, 4, 0] }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                className="text-emerald-400"
-              >
-                <ArrowDown className="w-5 h-5 stroke-[2.5]" />
-              </motion.div>
-
-              {/* Logo & Tagline */}
-              <div className="flex items-center space-x-2.5 pt-1">
-                <KinbodyIcon className="w-9 h-9" />
-                <span className="text-3xl font-black text-white tracking-tight">
-                  kinbody
-                </span>
-              </div>
-
-              <div className="space-y-2 pt-2">
-                <h1 className="text-xl font-bold text-white tracking-tight">
-                  Track. Understand. Evolve.
-                </h1>
-                <p className="text-xs text-zinc-400 font-normal leading-relaxed">
-                  Your meals, body and activity.<br />All in one place.
-                </p>
-              </div>
-            </div>
-
-            {/* Bottom Button & Pagination Dots */}
-            <div className="w-full space-y-6 pb-4">
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={() => goToStep(1)}
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold py-4 rounded-full transition-all text-sm flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20"
-              >
-                <span>Get Started</span>
-                <ArrowRight className="w-4 h-4 stroke-[2.5]" />
-              </motion.button>
-
-              {/* 3 Pagination Dots */}
-              <div className="flex items-center justify-center space-x-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                <div className="w-2 h-2 rounded-full bg-zinc-800" />
-                <div className="w-2 h-2 rounded-full bg-zinc-800" />
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* STEP 1: Name Input with Kin Companion Guide (Matching Screen 2) */}
-        {step === 1 && (
-          <motion.div
-            key="step1"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="px-6 py-6 flex-1 flex flex-col justify-between"
-          >
-            <div className="space-y-8 pt-4">
-              {/* Kin Companion Blob with Speech Bubble */}
-              <KinCompanion
-                size="lg"
-                message={
-                  <span>
-                    Hey there! 👋<br />
-                    I'm Kin. I'll be your companion on your health journey.
-                  </span>
-                }
-              />
-
-              {/* Title & Input */}
-              <div className="space-y-6 pt-2">
-                <div>
-                  <h2 className="text-2xl font-black text-white tracking-tight">
-                    What should I call you?
-                  </h2>
-                  <p className="text-xs text-zinc-400 mt-1">
-                    This helps personalise your experience.
-                  </p>
-                </div>
-
-                {validationError && (
-                  <div className="text-xs text-red-400 font-medium">
-                    {validationError}
-                  </div>
-                )}
-
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500">
-                    <UserIcon className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="text"
-                    value={nameInput}
-                    onChange={(e) => setNameInput(e.target.value)}
-                    placeholder="Your name"
-                    autoFocus
-                    className="w-full bg-[#12141A] border border-white/10 rounded-2xl pl-11 pr-4 py-4 text-white text-base focus:outline-none focus:border-emerald-500 placeholder-zinc-600 transition-colors"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Button & Pagination Dots */}
-            <div className="space-y-6 pb-6">
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={handleNextFromStep1}
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold py-4 rounded-full transition-all text-sm flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20"
-              >
-                <span>Next</span>
-                <ArrowRight className="w-4 h-4 stroke-[2.5]" />
-              </motion.button>
-
-              <div className="flex items-center justify-center space-x-2">
-                <div className="w-2 h-2 rounded-full bg-zinc-800" />
-                <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                <div className="w-2 h-2 rounded-full bg-zinc-800" />
-              </div>
-            </div>
-          </motion.div>
+        {/* STEP 0 & 1: Particle intro -> Logo -> Logo-to-Companion Morph -> Name Input */}
+        {(step === 0 || step === 1) && (
+          <OnboardingIntro
+            key="intro"
+            nameValue={nameInput}
+            onNameChange={(val) => {
+              setNameInput(val);
+              setValidationError(null);
+            }}
+            onNext={handleNextFromStep1}
+            validationError={validationError}
+          />
         )}
 
         {/* STEP 2: Basics Selection Rows (Matching Screen 3) */}

@@ -40,6 +40,7 @@ import { NutrientDetailModal } from './components/NutrientDetailModal';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { KinbodyLogo } from './components/KinbodyLogo';
+import { KinbodyBioTopology } from './components/KinbodyBioTopology';
 
 export default function App() {
   const todayStr = getTodayString();
@@ -414,6 +415,9 @@ export default function App() {
   return (
     <div className="min-h-screen bg-black text-white font-sans">
       <div className="max-w-xl mx-auto min-h-screen bg-black flex flex-col relative border-x border-white/10 shadow-2xl overflow-x-hidden">
+        {/* Bio-Organic Topographic Background Canvas */}
+        <KinbodyBioTopology />
+
         {/* Navigation Header */}
         <NavigationHeader
           userProfile={userProfile}

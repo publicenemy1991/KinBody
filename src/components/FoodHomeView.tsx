@@ -551,20 +551,43 @@ export const FoodHomeView: React.FC<FoodHomeViewProps> = ({
         </div>
       </div>
 
-      {/* Prominent Log Food Main Action Button */}
+      {/* Prominent Log Food Main Action Button with Bio-Topography */}
       <motion.div
         onClick={onOpenLogModal}
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.98 }}
-        className="w-full bg-emerald-500 hover:bg-emerald-400 text-black p-4 rounded-2xl transition-all shadow-xl shadow-emerald-500/20 cursor-pointer flex items-center justify-between"
+        className="relative w-full overflow-hidden rounded-2xl border border-[#16E39B]/35 bg-gradient-to-r from-[#03291B] via-[#021F14] to-[#01140C] p-4.5 transition-all shadow-xl shadow-[#16E39B]/10 cursor-pointer flex items-center justify-between"
       >
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-black/15 flex items-center justify-center shrink-0 text-black">
-            <Plus className="w-6 h-6 stroke-[3]" />
+        {/* Organic Bio-Topo Contour Lines overlay inside CTA Card */}
+        <div className="absolute inset-y-0 right-0 w-3/5 pointer-events-none opacity-40 overflow-hidden">
+          <svg
+            viewBox="0 0 240 100"
+            preserveAspectRatio="none"
+            className="w-full h-full text-[#16E39B]"
+          >
+            <g stroke="currentColor" strokeWidth="1.2" fill="none" opacity="0.8">
+              <path d="M 60 -10 C 100 20, 150 40, 250 30" />
+              <path d="M 40 10 C 85 40, 140 60, 250 50" />
+              <path d="M 20 30 C 70 60, 130 80, 250 70" />
+              <path d="M 0 50 C 55 80, 120 100, 250 90" />
+              <path d="M -20 70 C 40 100, 110 120, 250 110" />
+              {/* Concentric ridge loops */}
+              <path d="M 180 20 C 200 20, 220 35, 220 55 C 220 75, 200 90, 180 90 C 160 90, 140 75, 140 55 C 140 35, 160 20, 180 20 Z" opacity="0.6" />
+              <path d="M 180 32 C 195 32, 208 42, 208 55 C 208 68, 195 78, 180 78 C 165 78, 152 68, 152 55 C 152 42, 165 32, 180 32 Z" opacity="0.7" />
+              <path d="M 180 44 C 188 44, 195 49, 195 55 C 195 61, 188 66, 180 66 C 172 66, 165 61, 165 55 C 165 49, 172 44, 180 44 Z" opacity="0.8" />
+            </g>
+          </svg>
+        </div>
+
+        <div className="relative z-10 flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-xl bg-[#083827] border border-[#16E39B]/40 flex items-center justify-center shrink-0 text-[#16E39B] shadow-inner">
+            <Plus className="w-6 h-6 stroke-[2.8]" />
           </div>
           <div>
-            <span className="text-base font-extrabold block text-black">Log Food</span>
-            <span className="text-[11px] text-black/80 font-semibold">
+            <span className="text-base font-extrabold block text-white tracking-tight">
+              Log Food
+            </span>
+            <span className="text-[11.5px] text-[#A2F2D5] font-medium">
               Add meal, scan, or describe
             </span>
           </div>
