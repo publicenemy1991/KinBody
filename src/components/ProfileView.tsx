@@ -1,38 +1,35 @@
 import React, { useState } from 'react';
 import {
-  User as UserIcon,
   Target,
-  ChevronRight,
-  Settings,
   Edit2,
-  LogOut,
   ShieldCheck,
   Ruler,
   Check,
   Trash2,
   UserX,
-  Mail,
+  ChevronRight,
+  Settings,
 } from 'lucide-react';
 import { UserProfile, UnitSystem } from '../types';
 import { PrivacyPolicyModal } from './PrivacyPolicyModal';
-import { User } from 'firebase/auth';
+import { AccountBackupCard } from './AccountBackupCard';
 
 interface ProfileViewProps {
-  authUser: User;
   userProfile: UserProfile;
   onUpdateProfile: (updated: UserProfile) => void;
   onSignOut: () => void;
   onDeleteLoggedData: () => void;
   onDeleteAccount: () => void;
+  onMigrationComplete?: () => void;
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
-  authUser,
   userProfile,
   onUpdateProfile,
   onSignOut,
   onDeleteLoggedData,
   onDeleteAccount,
+  onMigrationComplete,
 }) => {
   const [editingTargets, setEditingTargets] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -84,38 +81,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   return (
     <div className="px-5 py-6 space-y-6 pb-28">
-      {/* Account Info Header */}
-      <div className="bg-[#121212] border border-white/10 rounded-2xl p-5 space-y-4 shadow-md">
-        <div className="flex items-center space-x-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-emerald-400 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-emerald-600/20 shrink-0">
-            {authUser.displayName ? authUser.displayName[0].toUpperCase() : authUser.email ? authUser.email[0].toUpperCase() : 'U'}
-          </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-black text-white tracking-tight truncate">
-              {authUser.displayName || userProfile.name || 'Authenticated User'}
-            </h1>
-            <div className="flex items-center space-x-1.5 text-xs text-zinc-400 mt-0.5">
-              <Mail className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{authUser.email || 'No email provided'}</span>
-            </div>
-            {userProfile.weightKg > 0 && (
-              <span className="inline-block mt-2 text-xs font-bold px-2.5 py-0.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 rounded-md">
-                {displayWeight}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <button
-          onClick={onSignOut}
-          className="w-full py-3 bg-[#181A20] hover:bg-white/5 border border-white/10 text-zinc-300 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-2"
-        >
-          <LogOut className="w-4 h-4 text-zinc-400" />
-          <span>Sign Out</span>
-        </button>
-      </div>
+      {/* Account & Backup Card */}
+      <AccountBackupCard onMigrationComplete={onMigrationComplete} />
 
       {/* Target & Personal Goals Card */}
+
       <div className="bg-[#121212] border border-white/10 rounded-2xl p-5 space-y-4 shadow-md">
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
           <div className="flex items-center space-x-2">

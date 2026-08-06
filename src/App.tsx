@@ -3,28 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { onAuthStateChanged, getRedirectResult, User, signOut, deleteUser } from 'firebase/auth';
-import { auth } from './lib/firebase';
-import {
-  getUserProfile,
-  saveUserProfile,
-  subscribeFoodEntries,
-  saveFoodEntry,
-  deleteFoodEntry,
-  subscribeWeightEntries,
-  saveWeightEntry,
-  deleteWeightEntry,
-  subscribeBodyScans,
-  saveBodyScan,
-  deleteBodyScan,
-  subscribeActivityLogs,
-  saveActivityLog,
-  deleteActivityLog,
-  deleteAllLoggedData,
-  deleteUserAccountAndAllData,
-} from './lib/firestoreService';
+import { AuthProvider, useAuth } from './auth/AuthProvider';
+import { profileRepository } from './data/profileRepository';
+import { foodRepository } from './data/foodRepository';
+import { activityRepository } from './data/activityRepository';
+import { bodyRepository } from './data/bodyRepository';
+import { migrationService } from './data/migrationService';
+import { localStorageRepository } from './data/localStorageRepository';
+import { MigrationModal } from './components/MigrationModal';
 import {
   PrimaryTab,
   UserProfile,
@@ -55,30 +43,31 @@ import { NutrientDetailModal } from './components/NutrientDetailModal';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { SignInModal } from './components/SignInModal';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
+import { KinbodyLogo } from './components/KinbodyLogo';
 
-type AuthState = 'loading' | 'signed-out' | 'signed-in-incomplete' | 'signed-in-complete';
-
-export default function App() {
+function KinbodyMainApp() {
+  const { user, isLoading: isAuthLoading, signOut } = useAuth();
   const todayStr = getTodayString();
 
-  // Authentication & Session States
-  const [authState, setAuthState] = useState<AuthState>('loading');
-  const [authUser, setAuthUser] = useState<User | null>(null);
-
-  // User Profile
+  // Profile & Data Collections
   const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
-
-  // Data Collections (Production default is empty arrays)
   const [loggedEntries, setLoggedEntries] = useState<LoggedFoodEntry[]>([]);
   const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
   const [bodyScanEntries, setBodyScanEntries] = useState<BodyScanEntry[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([]);
+
+  // Migration & Auth States
+  const [migrationModalState, setMigrationModalState] = useState<{
+    show: boolean;
+    type: 'upload_local' | 'remote_exists';
+  }>({ show: false, type: 'upload_local' });
 
   // Navigation & Modal States
   const [activeTab, setActiveTab] = useState<PrimaryTab>('log');
   const [selectedLogDate, setSelectedLogDate] = useState<string>(todayStr);
   const [showLogModal, setShowLogModal] = useState(false);
   const [showEvoltUploadModal, setShowEvoltUploadModal] = useState(false);
+  const [showSignInModal, setShowSignInModal] = useState(false);
   const [activeLoggingMode, setActiveLoggingMode] = useState<
     null | 'barcode' | 'photo' | 'voice' | 'search'
   >(null);
@@ -87,114 +76,73 @@ export default function App() {
   const [selectedLoggedEntry, setSelectedLoggedEntry] = useState<LoggedFoodEntry | null>(null);
   const [selectedNutrientDetailKey, setSelectedNutrientDetailKey] = useState<string | null>(null);
 
-  // 1. Firebase Auth Session Listener & Firestore User Sync
+  // Load all user data (either from Supabase account or Local Storage)
+  const reloadAllData = useCallback(async () => {
+    const userId = user?.id;
+
+    // Load Profile
+    const profile = await profileRepository.getProfile(userId);
+    if (profile) {
+      setUserProfile(profile);
+    }
+
+    // Load Food Entries
+    const foods = await foodRepository.getFoodEntries(userId);
+    setLoggedEntries(foods);
+
+    // Load Activities
+    const activities = await activityRepository.getActivities(userId);
+    setActivityLogs(activities);
+
+    // Load Weight Entries
+    const weights = await bodyRepository.getWeightEntries(userId);
+    setWeightEntries(weights);
+
+    // Load Body Scans
+    const scans = await bodyRepository.getBodyScans(userId);
+    setBodyScanEntries(scans);
+  }, [user]);
+
   useEffect(() => {
-    // Process redirect result if returning from Google OAuth redirect
-    getRedirectResult(auth).catch((err) => {
-      if (err?.code !== 'auth/popup-closed-by-user') {
-        console.warn('Google redirect result auth info:', err);
-      }
-    });
+    reloadAllData();
+  }, [reloadAllData]);
 
-    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setAuthUser(firebaseUser);
+  // Check migration status whenever user signs in
+  useEffect(() => {
+    if (!user) return;
 
-        try {
-          // Fetch existing profile from Firestore by user ID
-          let profile = await getUserProfile(firebaseUser.uid);
-
-          if (!profile) {
-            // Create new production baseline profile if first time
-            profile = {
-              ...INITIAL_USER_PROFILE,
-              name: firebaseUser.displayName || '',
-              weightKg: 0, // Clean default: no placeholder weight
-              onboardingCompleted: false,
-            };
-            await saveUserProfile(firebaseUser.uid, profile);
-          }
-
-          setUserProfile(profile);
-
-          if (profile.onboardingCompleted) {
-            setAuthState('signed-in-complete');
-          } else {
-            setAuthState('signed-in-incomplete');
-          }
-        } catch (err) {
-          console.warn('Initializing default profile due to permission or connection state:', err);
-          setUserProfile(INITIAL_USER_PROFILE);
-          setAuthState('signed-in-incomplete');
+    migrationService.checkMigrationStatus(user.id).then((status) => {
+      if (status.hasLocalData && !status.alreadyMigrated) {
+        if (status.hasRemoteData) {
+          setMigrationModalState({ show: true, type: 'remote_exists' });
+        } else {
+          setMigrationModalState({ show: true, type: 'upload_local' });
         }
-      } else {
-        // Signed out: reset in-memory data
-        setAuthUser(null);
-        setUserProfile(INITIAL_USER_PROFILE);
-        setLoggedEntries([]);
-        setWeightEntries([]);
-        setBodyScanEntries([]);
-        setActivityLogs([]);
-        setAuthState('signed-out');
       }
     });
-
-    return () => unsubscribeAuth();
-  }, []);
-
-  // 2. Real-time Firestore Subscriptions for Authenticated User Collections
-  useEffect(() => {
-    if (!authUser || authState !== 'signed-in-complete') return;
-
-    const unsubFood = subscribeFoodEntries(authUser.uid, (entries) => {
-      setLoggedEntries(entries);
-    });
-
-    const unsubWeight = subscribeWeightEntries(authUser.uid, (entries) => {
-      setWeightEntries(entries);
-    });
-
-    const unsubScans = subscribeBodyScans(authUser.uid, (entries) => {
-      setBodyScanEntries(entries);
-    });
-
-    const unsubActivities = subscribeActivityLogs(authUser.uid, (entries) => {
-      setActivityLogs(entries);
-    });
-
-    return () => {
-      unsubFood();
-      unsubWeight();
-      unsubScans();
-      unsubActivities();
-    };
-  }, [authUser, authState]);
+  }, [user]);
 
   // Handler: Save Step Progress during Onboarding Wizard
   const handleSaveStepProfile = async (partialProfile: Partial<UserProfile>) => {
-    if (!authUser) return;
     const updated = { ...userProfile, ...partialProfile };
     setUserProfile(updated);
-    await saveUserProfile(authUser.uid, updated);
+    await profileRepository.saveProfile(updated, user?.id);
   };
 
   // Handler: Complete Onboarding
   const handleCompleteOnboarding = async (finalProfile: UserProfile) => {
-    if (!authUser) return;
     const completedProfile = { ...finalProfile, onboardingCompleted: true };
     setUserProfile(completedProfile);
-    await saveUserProfile(authUser.uid, completedProfile);
-    setAuthState('signed-in-complete');
+    await profileRepository.saveProfile(completedProfile, user?.id);
     setActiveTab('log');
   };
 
-  // Handler: Food Entries
+  // Food Handlers
   const handleAddFoodEntry = async (
     foodItem: FoodItem,
     servings: number,
     mealType: MealType
   ) => {
-    if (!authUser) return;
     const newEntry: LoggedFoodEntry = {
       id: `entry_${Date.now()}`,
       mealType,
@@ -204,17 +152,15 @@ export default function App() {
       date: selectedLogDate || todayStr,
     };
 
-    // Optimistic local update + Firestore persist
-    setLoggedEntries((prev) => [...prev, newEntry]);
+    setLoggedEntries((prev) => [newEntry, ...prev]);
     setSelectedFoodForReview(null);
     setActiveLoggingMode(null);
     setShowLogModal(false);
 
-    await saveFoodEntry(authUser.uid, newEntry);
+    await foodRepository.saveFoodEntry(newEntry, user?.id);
   };
 
   const handleVoiceItemsParsed = async (items: FoodItem[], mealType: MealType) => {
-    if (!authUser) return;
     const newEntries: LoggedFoodEntry[] = items.map((it, idx) => ({
       id: `entry_v_${Date.now()}_${idx}`,
       mealType,
@@ -224,26 +170,24 @@ export default function App() {
       date: selectedLogDate || todayStr,
     }));
 
-    setLoggedEntries((prev) => [...prev, ...newEntries]);
+    setLoggedEntries((prev) => [...newEntries, ...prev]);
     setActiveLoggingMode(null);
     setShowLogModal(false);
 
     for (const entry of newEntries) {
-      await saveFoodEntry(authUser.uid, entry);
+      await foodRepository.saveFoodEntry(entry, user?.id);
     }
   };
 
   const handleDeleteEntry = async (id: string) => {
-    if (!authUser) return;
     setLoggedEntries((prev) => prev.filter((e) => e.id !== id));
     if (selectedLoggedEntry?.id === id) {
       setSelectedLoggedEntry(null);
     }
-    await deleteFoodEntry(authUser.uid, id);
+    await foodRepository.deleteFoodEntry(id, user?.id);
   };
 
   const handleUpdateEntryServings = async (id: string, newServings: number) => {
-    if (!authUser) return;
     const existing = loggedEntries.find((e) => e.id === id);
     if (!existing) return;
 
@@ -254,11 +198,10 @@ export default function App() {
     if (selectedLoggedEntry?.id === id) {
       setSelectedLoggedEntry(updated);
     }
-    await saveFoodEntry(authUser.uid, updated);
+    await foodRepository.saveFoodEntry(updated, user?.id);
   };
 
   const handleUpdateEntryMealType = async (id: string, newMealType: MealType) => {
-    if (!authUser) return;
     const existing = loggedEntries.find((e) => e.id === id);
     if (!existing) return;
 
@@ -269,23 +212,21 @@ export default function App() {
     if (selectedLoggedEntry?.id === id) {
       setSelectedLoggedEntry(updated);
     }
-    await saveFoodEntry(authUser.uid, updated);
+    await foodRepository.saveFoodEntry(updated, user?.id);
   };
 
   // Activity Handlers
   const handleAddActivity = async (entryData: Omit<ActivityLogEntry, 'id' | 'loggedAt'>) => {
-    if (!authUser) return;
     const newEntry: ActivityLogEntry = {
       ...entryData,
       id: `act_${Date.now()}`,
       loggedAt: new Date().toISOString(),
     };
     setActivityLogs((prev) => [newEntry, ...prev]);
-    await saveActivityLog(authUser.uid, newEntry);
+    await activityRepository.saveActivity(newEntry, user?.id);
   };
 
   const handleUpdateActivity = async (id: string, updatedPartial: Partial<ActivityLogEntry>) => {
-    if (!authUser) return;
     const existing = activityLogs.find((a) => a.id === id);
     if (!existing) return;
 
@@ -293,13 +234,12 @@ export default function App() {
     setActivityLogs((prev) =>
       prev.map((a) => (a.id === id ? updated : a))
     );
-    await saveActivityLog(authUser.uid, updated);
+    await activityRepository.saveActivity(updated, user?.id);
   };
 
   const handleDeleteActivity = async (id: string) => {
-    if (!authUser) return;
     setActivityLogs((prev) => prev.filter((a) => a.id !== id));
-    await deleteActivityLog(authUser.uid, id);
+    await activityRepository.deleteActivity(id, user?.id);
   };
 
   const activityCaloriesToday = activityLogs
@@ -308,7 +248,6 @@ export default function App() {
 
   // Weight & Body Scan Handlers
   const handleAddWeight = async (weightKg: number, note?: string, date?: string) => {
-    if (!authUser) return;
     const entryDate = date || selectedLogDate || todayStr;
     const newWeight: WeightEntry = {
       id: `wt_${Date.now()}`,
@@ -324,12 +263,11 @@ export default function App() {
     const updatedProfile = { ...userProfile, weightKg };
     setUserProfile(updatedProfile);
 
-    await saveWeightEntry(authUser.uid, newWeight);
-    await saveUserProfile(authUser.uid, updatedProfile);
+    await bodyRepository.saveWeightEntry(newWeight, user?.id);
+    await profileRepository.saveProfile(updatedProfile, user?.id);
   };
 
   const handleEditWeight = async (id: string, weightKg: number) => {
-    if (!authUser) return;
     const existing = weightEntries.find((w) => w.id === id);
     if (!existing) return;
 
@@ -340,18 +278,16 @@ export default function App() {
     const updatedProfile = { ...userProfile, weightKg };
     setUserProfile(updatedProfile);
 
-    await saveWeightEntry(authUser.uid, updated);
-    await saveUserProfile(authUser.uid, updatedProfile);
+    await bodyRepository.saveWeightEntry(updated, user?.id);
+    await profileRepository.saveProfile(updatedProfile, user?.id);
   };
 
   const handleDeleteWeight = async (id: string) => {
-    if (!authUser) return;
     setWeightEntries((prev) => prev.filter((w) => w.id !== id));
-    await deleteWeightEntry(authUser.uid, id);
+    await bodyRepository.deleteWeightEntry(id, user?.id);
   };
 
   const handleSaveEvoltScan = async (scanData: Omit<BodyScanEntry, 'id' | 'loggedAt'>) => {
-    if (!authUser) return;
     const newScan: BodyScanEntry = {
       ...scanData,
       id: `bs_${Date.now()}`,
@@ -359,9 +295,8 @@ export default function App() {
     };
 
     setBodyScanEntries((prev) => [newScan, ...prev]);
-    await saveBodyScan(authUser.uid, newScan);
+    await bodyRepository.saveBodyScan(newScan, user?.id);
 
-    // Synchronize current profile metrics
     const updatedProfile = {
       ...userProfile,
       weightKg: scanData.weightKg ?? userProfile.weightKg,
@@ -373,9 +308,8 @@ export default function App() {
       visceralFatRating: scanData.visceralFatRating ?? userProfile.visceralFatRating,
     };
     setUserProfile(updatedProfile);
-    await saveUserProfile(authUser.uid, updatedProfile);
+    await profileRepository.saveProfile(updatedProfile, user?.id);
 
-    // If weight is included in scan, log a linked weight entry
     if (scanData.weightKg) {
       const linkedWeight: WeightEntry = {
         id: `wt_${Date.now()}`,
@@ -387,16 +321,15 @@ export default function App() {
         linkedWeight,
         ...prev.filter((w) => w.date !== scanData.date),
       ]);
-      await saveWeightEntry(authUser.uid, linkedWeight);
+      await bodyRepository.saveWeightEntry(linkedWeight, user?.id);
     }
   };
 
   const handleEditScan = async (updatedScan: BodyScanEntry) => {
-    if (!authUser) return;
     setBodyScanEntries((prev) =>
       prev.map((s) => (s.id === updatedScan.id ? updatedScan : s))
     );
-    await saveBodyScan(authUser.uid, updatedScan);
+    await bodyRepository.saveBodyScan(updatedScan, user?.id);
 
     if (updatedScan.weightKg) {
       const updatedProfile = {
@@ -410,20 +343,19 @@ export default function App() {
         visceralFatRating: updatedScan.visceralFatRating ?? userProfile.visceralFatRating,
       };
       setUserProfile(updatedProfile);
-      await saveUserProfile(authUser.uid, updatedProfile);
+      await profileRepository.saveProfile(updatedProfile, user?.id);
     }
   };
 
   const handleDeleteScan = async (id: string) => {
-    if (!authUser) return;
     setBodyScanEntries((prev) => prev.filter((s) => s.id !== id));
-    await deleteBodyScan(authUser.uid, id);
+    await bodyRepository.deleteBodyScan(id, user?.id);
   };
 
   const handleUpdateProfile = async (updated: UserProfile) => {
-    if (!authUser) return;
-    setUserProfile(updated);
-    await saveUserProfile(authUser.uid, updated);
+    const completedProfile = { ...updated, onboardingCompleted: true };
+    setUserProfile(completedProfile);
+    await profileRepository.saveProfile(completedProfile, user?.id);
 
     if (updated.weightKg) {
       const entryDate = selectedLogDate || todayStr;
@@ -437,18 +369,12 @@ export default function App() {
         weightEntry,
         ...prev.filter((w) => w.date !== entryDate),
       ]);
-      await saveWeightEntry(authUser.uid, weightEntry);
+      await bodyRepository.saveWeightEntry(weightEntry, user?.id);
     }
   };
 
-  // Auth Operations
-  const handleSignOut = async () => {
-    await signOut(auth);
-  };
-
   const handleDeleteLoggedData = async () => {
-    if (!authUser) return;
-    await deleteAllLoggedData(authUser.uid);
+    localStorageRepository.clearAllLocalData();
     setLoggedEntries([]);
     setWeightEntries([]);
     setBodyScanEntries([]);
@@ -456,42 +382,28 @@ export default function App() {
   };
 
   const handleDeleteAccount = async () => {
-    if (!authUser) return;
-    const uid = authUser.uid;
-    await deleteUserAccountAndAllData(uid);
-    try {
-      await deleteUser(authUser);
-    } catch (e) {
-      console.warn('Firebase user auth deletion requires recent login:', e);
-      await signOut(auth);
-    }
+    localStorageRepository.clearAllLocalData();
+    setLoggedEntries([]);
+    setWeightEntries([]);
+    setBodyScanEntries([]);
+    setActivityLogs([]);
+    await signOut();
   };
 
-  // State 1: Boot Splash Screen (Session Check in progress)
-  if (authState === 'loading') {
+  // State 1: Boot / Session Restore Loading Screen with Kinbody Logo
+  if (isAuthLoading) {
     return (
-      <div className="fixed inset-0 bg-[#0D0E12] flex items-center justify-center z-50">
-        <div className="w-4 h-4 rounded-full bg-emerald-500 animate-pulse" />
+      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center z-50 p-6 space-y-4">
+        <div className="w-16 h-16 relative flex items-center justify-center">
+          <KinbodyLogo className="w-12 h-12 text-emerald-400 animate-pulse" />
+        </div>
+        <p className="text-xs font-bold text-zinc-400 tracking-wider uppercase">Loading Kinbody…</p>
       </div>
     );
   }
 
-  // State 2: Signed-out screen (Google OAuth / Email login required)
-  if (authState === 'signed-out') {
-    return (
-      <div className="min-h-screen bg-black text-white font-sans">
-        <SignInModal
-          isStandaloneScreen={true}
-          onSuccessSignIn={() => {
-            // Handled reactively by onAuthStateChanged
-          }}
-        />
-      </div>
-    );
-  }
-
-  // State 3: Signed-in but Onboarding Incomplete
-  if (authState === 'signed-in-incomplete') {
+  // State 2: Show Onboarding Wizard if Onboarding Incomplete
+  if (!userProfile.onboardingCompleted) {
     return (
       <div className="min-h-screen bg-black text-white font-sans">
         <OnboardingWizard
@@ -503,7 +415,7 @@ export default function App() {
     );
   }
 
-  // State 4: Signed-in and Onboarding Complete (Main Application Dashboard)
+  // State 3: Main Application Dashboard
   return (
     <div className="min-h-screen bg-black text-white transition-colors duration-300 font-sans">
       <div className="max-w-xl mx-auto min-h-screen bg-black flex flex-col relative border-x border-white/10 shadow-2xl overflow-x-hidden">
@@ -511,7 +423,7 @@ export default function App() {
         <NavigationHeader
           userProfile={userProfile}
           onOpenProfile={() => setActiveTab('profile')}
-          onOpenSignIn={() => {}}
+          onOpenSignIn={() => setShowSignInModal(true)}
         />
 
         {/* Tab Views */}
@@ -600,7 +512,7 @@ export default function App() {
               </motion.div>
             )}
 
-            {activeTab === 'profile' && authUser && (
+            {activeTab === 'profile' && (
               <motion.div
                 key="tab-profile"
                 initial={{ opacity: 0, y: 8 }}
@@ -609,12 +521,12 @@ export default function App() {
                 transition={{ duration: 0.22, ease: 'easeOut' }}
               >
                 <ProfileView
-                  authUser={authUser}
                   userProfile={userProfile}
                   onUpdateProfile={handleUpdateProfile}
-                  onSignOut={handleSignOut}
+                  onSignOut={signOut}
                   onDeleteLoggedData={handleDeleteLoggedData}
                   onDeleteAccount={handleDeleteAccount}
+                  onMigrationComplete={reloadAllData}
                 />
               </motion.div>
             )}
@@ -645,7 +557,7 @@ export default function App() {
           />
         )}
 
-        {/* Consolidated Smart Scanner Modal (Barcodes or Photo AI) */}
+        {/* Consolidated Smart Scanner Modal */}
         {(activeLoggingMode === 'barcode' || activeLoggingMode === 'photo') && (
           <ScannerModal
             initialSubMode={activeLoggingMode === 'barcode' ? 'barcode' : 'photo'}
@@ -709,7 +621,36 @@ export default function App() {
 
         {/* PWA Offline & Install Prompt Handler */}
         <PWAInstallPrompt />
+
+        {/* Account / Sign In Modal */}
+        {showSignInModal && (
+          <SignInModal
+            onClose={() => setShowSignInModal(false)}
+            onSuccessSignIn={() => setShowSignInModal(false)}
+          />
+        )}
+
+        {/* Migration Modal */}
+        {migrationModalState.show && user && (
+          <MigrationModal
+            userId={user.id}
+            type={migrationModalState.type}
+            onClose={() => setMigrationModalState({ show: false, type: 'upload_local' })}
+            onSuccess={() => {
+              setMigrationModalState({ show: false, type: 'upload_local' });
+              reloadAllData();
+            }}
+          />
+        )}
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <KinbodyMainApp />
+    </AuthProvider>
   );
 }
