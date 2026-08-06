@@ -5,14 +5,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { AuthProvider, useAuth } from './auth/AuthProvider';
 import { profileRepository } from './data/profileRepository';
 import { foodRepository } from './data/foodRepository';
 import { activityRepository } from './data/activityRepository';
 import { bodyRepository } from './data/bodyRepository';
-import { migrationService } from './data/migrationService';
 import { localStorageRepository } from './data/localStorageRepository';
-import { MigrationModal } from './components/MigrationModal';
 import {
   PrimaryTab,
   UserProfile,
@@ -41,33 +38,25 @@ import { FoodDetailView } from './components/FoodDetailView';
 import { LoggedFoodDetailModal } from './components/LoggedFoodDetailModal';
 import { NutrientDetailModal } from './components/NutrientDetailModal';
 import { OnboardingWizard } from './components/OnboardingWizard';
-import { SignInModal } from './components/SignInModal';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { KinbodyLogo } from './components/KinbodyLogo';
 
-function KinbodyMainApp() {
-  const { user, isLoading: isAuthLoading, signOut } = useAuth();
+export default function App() {
   const todayStr = getTodayString();
 
-  // Profile & Data Collections
+  // Profile & Local Data Collections
   const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
   const [loggedEntries, setLoggedEntries] = useState<LoggedFoodEntry[]>([]);
   const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
   const [bodyScanEntries, setBodyScanEntries] = useState<BodyScanEntry[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([]);
-
-  // Migration & Auth States
-  const [migrationModalState, setMigrationModalState] = useState<{
-    show: boolean;
-    type: 'upload_local' | 'remote_exists';
-  }>({ show: false, type: 'upload_local' });
+  const [isInitializing, setIsInitializing] = useState(true);
 
   // Navigation & Modal States
   const [activeTab, setActiveTab] = useState<PrimaryTab>('log');
   const [selectedLogDate, setSelectedLogDate] = useState<string>(todayStr);
   const [showLogModal, setShowLogModal] = useState(false);
   const [showEvoltUploadModal, setShowEvoltUploadModal] = useState(false);
-  const [showSignInModal, setShowSignInModal] = useState(false);
   const [activeLoggingMode, setActiveLoggingMode] = useState<
     null | 'barcode' | 'photo' | 'voice' | 'search'
   >(null);
@@ -76,64 +65,51 @@ function KinbodyMainApp() {
   const [selectedLoggedEntry, setSelectedLoggedEntry] = useState<LoggedFoodEntry | null>(null);
   const [selectedNutrientDetailKey, setSelectedNutrientDetailKey] = useState<string | null>(null);
 
-  // Load all user data (either from Supabase account or Local Storage)
+  // Load all user data from local storage
   const reloadAllData = useCallback(async () => {
-    const userId = user?.id;
-
     // Load Profile
-    const profile = await profileRepository.getProfile(userId);
+    const profile = await profileRepository.getProfile();
     if (profile) {
       setUserProfile(profile);
+    } else {
+      setUserProfile(INITIAL_USER_PROFILE);
     }
 
     // Load Food Entries
-    const foods = await foodRepository.getFoodEntries(userId);
+    const foods = await foodRepository.getFoodEntries();
     setLoggedEntries(foods);
 
     // Load Activities
-    const activities = await activityRepository.getActivities(userId);
+    const activities = await activityRepository.getActivities();
     setActivityLogs(activities);
 
     // Load Weight Entries
-    const weights = await bodyRepository.getWeightEntries(userId);
+    const weights = await bodyRepository.getWeightEntries();
     setWeightEntries(weights);
 
     // Load Body Scans
-    const scans = await bodyRepository.getBodyScans(userId);
+    const scans = await bodyRepository.getBodyScans();
     setBodyScanEntries(scans);
-  }, [user]);
+
+    setIsInitializing(false);
+  }, []);
 
   useEffect(() => {
     reloadAllData();
   }, [reloadAllData]);
 
-  // Check migration status whenever user signs in
-  useEffect(() => {
-    if (!user) return;
-
-    migrationService.checkMigrationStatus(user.id).then((status) => {
-      if (status.hasLocalData && !status.alreadyMigrated) {
-        if (status.hasRemoteData) {
-          setMigrationModalState({ show: true, type: 'remote_exists' });
-        } else {
-          setMigrationModalState({ show: true, type: 'upload_local' });
-        }
-      }
-    });
-  }, [user]);
-
   // Handler: Save Step Progress during Onboarding Wizard
   const handleSaveStepProfile = async (partialProfile: Partial<UserProfile>) => {
     const updated = { ...userProfile, ...partialProfile };
     setUserProfile(updated);
-    await profileRepository.saveProfile(updated, user?.id);
+    await profileRepository.saveProfile(updated);
   };
 
   // Handler: Complete Onboarding
   const handleCompleteOnboarding = async (finalProfile: UserProfile) => {
     const completedProfile = { ...finalProfile, onboardingCompleted: true };
     setUserProfile(completedProfile);
-    await profileRepository.saveProfile(completedProfile, user?.id);
+    await profileRepository.saveProfile(completedProfile);
     setActiveTab('log');
   };
 
@@ -157,7 +133,7 @@ function KinbodyMainApp() {
     setActiveLoggingMode(null);
     setShowLogModal(false);
 
-    await foodRepository.saveFoodEntry(newEntry, user?.id);
+    await foodRepository.saveFoodEntry(newEntry);
   };
 
   const handleVoiceItemsParsed = async (items: FoodItem[], mealType: MealType) => {
@@ -175,7 +151,7 @@ function KinbodyMainApp() {
     setShowLogModal(false);
 
     for (const entry of newEntries) {
-      await foodRepository.saveFoodEntry(entry, user?.id);
+      await foodRepository.saveFoodEntry(entry);
     }
   };
 
@@ -184,7 +160,7 @@ function KinbodyMainApp() {
     if (selectedLoggedEntry?.id === id) {
       setSelectedLoggedEntry(null);
     }
-    await foodRepository.deleteFoodEntry(id, user?.id);
+    await foodRepository.deleteFoodEntry(id);
   };
 
   const handleUpdateEntryServings = async (id: string, newServings: number) => {
@@ -198,7 +174,7 @@ function KinbodyMainApp() {
     if (selectedLoggedEntry?.id === id) {
       setSelectedLoggedEntry(updated);
     }
-    await foodRepository.saveFoodEntry(updated, user?.id);
+    await foodRepository.saveFoodEntry(updated);
   };
 
   const handleUpdateEntryMealType = async (id: string, newMealType: MealType) => {
@@ -212,7 +188,7 @@ function KinbodyMainApp() {
     if (selectedLoggedEntry?.id === id) {
       setSelectedLoggedEntry(updated);
     }
-    await foodRepository.saveFoodEntry(updated, user?.id);
+    await foodRepository.saveFoodEntry(updated);
   };
 
   // Activity Handlers
@@ -223,7 +199,7 @@ function KinbodyMainApp() {
       loggedAt: new Date().toISOString(),
     };
     setActivityLogs((prev) => [newEntry, ...prev]);
-    await activityRepository.saveActivity(newEntry, user?.id);
+    await activityRepository.saveActivity(newEntry);
   };
 
   const handleUpdateActivity = async (id: string, updatedPartial: Partial<ActivityLogEntry>) => {
@@ -234,12 +210,12 @@ function KinbodyMainApp() {
     setActivityLogs((prev) =>
       prev.map((a) => (a.id === id ? updated : a))
     );
-    await activityRepository.saveActivity(updated, user?.id);
+    await activityRepository.saveActivity(updated);
   };
 
   const handleDeleteActivity = async (id: string) => {
     setActivityLogs((prev) => prev.filter((a) => a.id !== id));
-    await activityRepository.deleteActivity(id, user?.id);
+    await activityRepository.deleteActivity(id);
   };
 
   const activityCaloriesToday = activityLogs
@@ -263,8 +239,8 @@ function KinbodyMainApp() {
     const updatedProfile = { ...userProfile, weightKg };
     setUserProfile(updatedProfile);
 
-    await bodyRepository.saveWeightEntry(newWeight, user?.id);
-    await profileRepository.saveProfile(updatedProfile, user?.id);
+    await bodyRepository.saveWeightEntry(newWeight);
+    await profileRepository.saveProfile(updatedProfile);
   };
 
   const handleEditWeight = async (id: string, weightKg: number) => {
@@ -278,13 +254,13 @@ function KinbodyMainApp() {
     const updatedProfile = { ...userProfile, weightKg };
     setUserProfile(updatedProfile);
 
-    await bodyRepository.saveWeightEntry(updated, user?.id);
-    await profileRepository.saveProfile(updatedProfile, user?.id);
+    await bodyRepository.saveWeightEntry(updated);
+    await profileRepository.saveProfile(updatedProfile);
   };
 
   const handleDeleteWeight = async (id: string) => {
     setWeightEntries((prev) => prev.filter((w) => w.id !== id));
-    await bodyRepository.deleteWeightEntry(id, user?.id);
+    await bodyRepository.deleteWeightEntry(id);
   };
 
   const handleSaveEvoltScan = async (scanData: Omit<BodyScanEntry, 'id' | 'loggedAt'>) => {
@@ -295,7 +271,7 @@ function KinbodyMainApp() {
     };
 
     setBodyScanEntries((prev) => [newScan, ...prev]);
-    await bodyRepository.saveBodyScan(newScan, user?.id);
+    await bodyRepository.saveBodyScan(newScan);
 
     const updatedProfile = {
       ...userProfile,
@@ -308,7 +284,7 @@ function KinbodyMainApp() {
       visceralFatRating: scanData.visceralFatRating ?? userProfile.visceralFatRating,
     };
     setUserProfile(updatedProfile);
-    await profileRepository.saveProfile(updatedProfile, user?.id);
+    await profileRepository.saveProfile(updatedProfile);
 
     if (scanData.weightKg) {
       const linkedWeight: WeightEntry = {
@@ -321,7 +297,7 @@ function KinbodyMainApp() {
         linkedWeight,
         ...prev.filter((w) => w.date !== scanData.date),
       ]);
-      await bodyRepository.saveWeightEntry(linkedWeight, user?.id);
+      await bodyRepository.saveWeightEntry(linkedWeight);
     }
   };
 
@@ -329,7 +305,7 @@ function KinbodyMainApp() {
     setBodyScanEntries((prev) =>
       prev.map((s) => (s.id === updatedScan.id ? updatedScan : s))
     );
-    await bodyRepository.saveBodyScan(updatedScan, user?.id);
+    await bodyRepository.saveBodyScan(updatedScan);
 
     if (updatedScan.weightKg) {
       const updatedProfile = {
@@ -343,19 +319,19 @@ function KinbodyMainApp() {
         visceralFatRating: updatedScan.visceralFatRating ?? userProfile.visceralFatRating,
       };
       setUserProfile(updatedProfile);
-      await profileRepository.saveProfile(updatedProfile, user?.id);
+      await profileRepository.saveProfile(updatedProfile);
     }
   };
 
   const handleDeleteScan = async (id: string) => {
     setBodyScanEntries((prev) => prev.filter((s) => s.id !== id));
-    await bodyRepository.deleteBodyScan(id, user?.id);
+    await bodyRepository.deleteBodyScan(id);
   };
 
   const handleUpdateProfile = async (updated: UserProfile) => {
     const completedProfile = { ...updated, onboardingCompleted: true };
     setUserProfile(completedProfile);
-    await profileRepository.saveProfile(completedProfile, user?.id);
+    await profileRepository.saveProfile(completedProfile);
 
     if (updated.weightKg) {
       const entryDate = selectedLogDate || todayStr;
@@ -369,44 +345,63 @@ function KinbodyMainApp() {
         weightEntry,
         ...prev.filter((w) => w.date !== entryDate),
       ]);
-      await bodyRepository.saveWeightEntry(weightEntry, user?.id);
+      await bodyRepository.saveWeightEntry(weightEntry);
     }
   };
 
   const handleDeleteLoggedData = async () => {
-    localStorageRepository.clearAllLocalData();
+    localStorageRepository.saveFoodEntries([]);
+    localStorageRepository.saveWeightEntries([]);
+    localStorageRepository.saveBodyScans([]);
+    localStorageRepository.saveActivities([]);
     setLoggedEntries([]);
     setWeightEntries([]);
     setBodyScanEntries([]);
     setActivityLogs([]);
   };
 
-  const handleDeleteAccount = async () => {
+  const handleResetOnboarding = async () => {
+    const updated: UserProfile = {
+      ...userProfile,
+      onboardingCompleted: false,
+      onboardingStep: 0,
+    };
+    setUserProfile(updated);
+    await profileRepository.saveProfile(updated);
+  };
+
+  const handleResetAllData = async () => {
     localStorageRepository.clearAllLocalData();
+    const cleanProfile: UserProfile = {
+      ...INITIAL_USER_PROFILE,
+      onboardingCompleted: false,
+      onboardingStep: 0,
+    };
+    setUserProfile(cleanProfile);
+    await profileRepository.saveProfile(cleanProfile);
     setLoggedEntries([]);
     setWeightEntries([]);
     setBodyScanEntries([]);
     setActivityLogs([]);
-    await signOut();
+    setActiveTab('log');
   };
 
-  // State 1: Boot / Session Restore Loading Screen with Kinbody Logo
-  if (isAuthLoading) {
+  // Initializing Splash Screen
+  if (isInitializing) {
     return (
       <div className="fixed inset-0 bg-black flex flex-col items-center justify-center z-50 p-6 space-y-4">
-        <div className="w-16 h-16 relative flex items-center justify-center">
-          <KinbodyLogo className="w-12 h-12 text-emerald-400 animate-pulse" />
-        </div>
-        <p className="text-xs font-bold text-zinc-400 tracking-wider uppercase">Loading Kinbody…</p>
+        <KinbodyLogo className="w-12 h-12 text-emerald-400 animate-pulse" />
+        <p className="text-xs font-bold text-zinc-500 tracking-wider uppercase">Loading Kinbody…</p>
       </div>
     );
   }
 
-  // State 2: Show Onboarding Wizard if Onboarding Incomplete
+  // Show Onboarding Wizard if Onboarding Incomplete
   if (!userProfile.onboardingCompleted) {
     return (
       <div className="min-h-screen bg-black text-white font-sans">
         <OnboardingWizard
+          key={`onboarding_wizard_${userProfile.onboardingStep || 0}_${userProfile.onboardingCompleted ? '1' : '0'}`}
           initialProfile={userProfile}
           onSaveStepProfile={handleSaveStepProfile}
           onCompleteOnboarding={handleCompleteOnboarding}
@@ -415,15 +410,14 @@ function KinbodyMainApp() {
     );
   }
 
-  // State 3: Main Application Dashboard
+  // Main Application Dashboard
   return (
-    <div className="min-h-screen bg-black text-white transition-colors duration-300 font-sans">
+    <div className="min-h-screen bg-black text-white font-sans">
       <div className="max-w-xl mx-auto min-h-screen bg-black flex flex-col relative border-x border-white/10 shadow-2xl overflow-x-hidden">
         {/* Navigation Header */}
         <NavigationHeader
           userProfile={userProfile}
           onOpenProfile={() => setActiveTab('profile')}
-          onOpenSignIn={() => setShowSignInModal(true)}
         />
 
         {/* Tab Views */}
@@ -435,7 +429,7 @@ function KinbodyMainApp() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
               >
                 <FoodHomeView
                   userProfile={userProfile}
@@ -459,7 +453,7 @@ function KinbodyMainApp() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
               >
                 <ActivityView
                   userProfile={userProfile}
@@ -479,7 +473,7 @@ function KinbodyMainApp() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
               >
                 <BodyView
                   currentWeightKg={userProfile.weightKg}
@@ -501,7 +495,7 @@ function KinbodyMainApp() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
               >
                 <ProgressView
                   userProfile={userProfile}
@@ -518,15 +512,15 @@ function KinbodyMainApp() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
               >
                 <ProfileView
                   userProfile={userProfile}
                   onUpdateProfile={handleUpdateProfile}
-                  onSignOut={signOut}
+                  onResetOnboarding={handleResetOnboarding}
                   onDeleteLoggedData={handleDeleteLoggedData}
-                  onDeleteAccount={handleDeleteAccount}
-                  onMigrationComplete={reloadAllData}
+                  onResetAllData={handleResetAllData}
+                  onReloadAllData={reloadAllData}
                 />
               </motion.div>
             )}
@@ -621,36 +615,7 @@ function KinbodyMainApp() {
 
         {/* PWA Offline & Install Prompt Handler */}
         <PWAInstallPrompt />
-
-        {/* Account / Sign In Modal */}
-        {showSignInModal && (
-          <SignInModal
-            onClose={() => setShowSignInModal(false)}
-            onSuccessSignIn={() => setShowSignInModal(false)}
-          />
-        )}
-
-        {/* Migration Modal */}
-        {migrationModalState.show && user && (
-          <MigrationModal
-            userId={user.id}
-            type={migrationModalState.type}
-            onClose={() => setMigrationModalState({ show: false, type: 'upload_local' })}
-            onSuccess={() => {
-              setMigrationModalState({ show: false, type: 'upload_local' });
-              reloadAllData();
-            }}
-          />
-        )}
       </div>
     </div>
-  );
-}
-
-export default function App() {
-  return (
-    <AuthProvider>
-      <KinbodyMainApp />
-    </AuthProvider>
   );
 }

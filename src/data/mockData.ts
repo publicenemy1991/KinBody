@@ -59,6 +59,7 @@ export const INITIAL_USER_PROFILE: UserProfile = {
   fatTargetG: 65,
   selectedProgramId: 'dorian_yates_blood_and_guts',
   onboardingCompleted: false,
+  onboardingStep: 0,
 };
 
 export const COMMON_AUSTRALIAN_FOODS: FoodItem[] = [

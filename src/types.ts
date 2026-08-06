@@ -172,6 +172,7 @@ export interface UserProfile {
   visceralFatRating?: number;
   selectedProgramId: string;
   onboardingCompleted: boolean;
+  onboardingStep?: number;
 }
 
 export interface NutrientDetail {

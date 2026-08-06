@@ -38,17 +38,26 @@ export const supabase = createClient(safeUrl, safeKey);
 
 export async function signInWithGoogle(): Promise<void> {
   if (!isSupabaseConfigured) {
-    throw new Error('Supabase is not configured yet. Please enter valid VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY values.');
+    throw new Error('Supabase is not configured yet. Please set valid VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.');
   }
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: window.location.origin,
-    },
-  });
 
-  if (error) {
-    throw error;
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+
+    if (error) {
+      throw error;
+    }
+  } catch (err: any) {
+    const message = err?.message || '';
+    if (message.includes('Failed to fetch') || message.includes('NetworkError') || message.includes('ENOTFOUND')) {
+      throw new Error(`Unable to connect to Supabase at ${safeUrl}. Please ensure your Supabase project is active (not Paused) in the Supabase Dashboard, and check that VITE_SUPABASE_URL is correct.`);
+    }
+    throw err;
   }
 }
 

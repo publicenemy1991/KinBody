@@ -110,11 +110,16 @@ export const localStorageRepository = {
   },
 
   clearAllLocalData(): void {
-    localStorage.removeItem(KEYS.PROFILE);
-    localStorage.removeItem(KEYS.FOOD);
-    localStorage.removeItem(KEYS.ACTIVITIES);
-    localStorage.removeItem(KEYS.WEIGHT);
-    localStorage.removeItem(KEYS.SCANS);
-    localStorage.removeItem(KEYS.SETTINGS);
+    try {
+      localStorage.removeItem(KEYS.PROFILE);
+      localStorage.removeItem(KEYS.FOOD);
+      localStorage.removeItem(KEYS.ACTIVITIES);
+      localStorage.removeItem(KEYS.WEIGHT);
+      localStorage.removeItem(KEYS.SCANS);
+      localStorage.removeItem(KEYS.SETTINGS);
+      localStorage.clear();
+    } catch (e) {
+      console.warn('Failed to clear local storage:', e);
+    }
   }
 };

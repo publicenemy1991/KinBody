@@ -6,16 +6,12 @@ import { KinbodyLogo } from './KinbodyLogo';
 interface NavigationHeaderProps {
   userProfile: UserProfile;
   onOpenProfile: () => void;
-  onOpenSignIn: () => void;
 }
 
 export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
   userProfile,
   onOpenProfile,
-  onOpenSignIn,
 }) => {
-  const isLoggedIn = Boolean(userProfile.onboardingCompleted && userProfile.name);
-
   return (
     <header className="flex items-center justify-between px-5 pt-6 pb-3 bg-black">
       {/* Brand Logo Top Left */}
@@ -34,10 +30,10 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
         </button>
 
         <button
-          onClick={isLoggedIn ? onOpenProfile : onOpenSignIn}
-          aria-label="User Account"
+          onClick={onOpenProfile}
+          aria-label="User Profile"
           className="w-10 h-10 rounded-full bg-[#14161C] border border-emerald-500/30 flex items-center justify-center text-emerald-400 hover:bg-emerald-500/10 transition-colors"
-          title={isLoggedIn ? (userProfile.name || 'Account') : 'Sign In'}
+          title={userProfile.name || 'Profile'}
         >
           <User className="w-4.5 h-4.5 text-emerald-400" />
         </button>
@@ -45,5 +41,3 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
     </header>
   );
 };
-
-

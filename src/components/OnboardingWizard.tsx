@@ -1,8 +1,21 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Check, ChevronRight, ArrowRight, Sparkles, Scale, Flame } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Calendar,
+  User as UserIcon,
+  Ruler,
+  Scale,
+  ChevronRight,
+  ArrowDown,
+  Check,
+  Flame,
+} from 'lucide-react';
 import { UserProfile, UserGoal, UnitSystem } from '../types';
-import { KinbodyIcon, KinbodyLogo } from './KinbodyLogo';
+import { KinbodyIcon } from './KinbodyLogo';
+import { KinCompanion } from './KinCompanion';
+import { LivingParticleLogo } from './LivingParticleLogo';
 
 interface OnboardingWizardProps {
   initialProfile: UserProfile;
@@ -23,11 +36,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
   const isImperial = profile.unitSystem === 'imperial';
 
-  // State for raw display values (begin empty unless existing profile has non-zero value)
+  // Raw State Inputs
   const initialNameParts = (profile.name || '').trim().split(' ');
-  const [firstNameInput, setFirstNameInput] = useState<string>(initialNameParts[0] || '');
-  const [lastNameInput, setLastNameInput] = useState<string>(initialNameParts.slice(1).join(' ') || '');
+  const [nameInput, setNameInput] = useState<string>(profile.name || '');
   const [ageInput, setAgeInput] = useState<string>(profile.age > 0 ? profile.age.toString() : '');
+  const [sexInput, setSexInput] = useState<'male' | 'female' | 'other'>(profile.sex || 'male');
   const [weightInput, setWeightInput] = useState<string>(
     profile.weightKg > 0
       ? isImperial
@@ -44,15 +57,20 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   );
 
   const [calTargetInput, setCalTargetInput] = useState<string>(
-    profile.calorieTarget > 0 ? profile.calorieTarget.toString() : ''
+    profile.calorieTarget > 0 ? profile.calorieTarget.toString() : '2000'
   );
   const [proTargetInput, setProTargetInput] = useState<string>(
-    profile.proteinTargetG > 0 ? profile.proteinTargetG.toString() : ''
+    profile.proteinTargetG > 0 ? profile.proteinTargetG.toString() : '150'
   );
+
+  // Active editing row in Step 2 basics screen
+  const [activeEditingBasics, setActiveEditingBasics] = useState<
+    'age' | 'sex' | 'height' | 'weight' | null
+  >(null);
 
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const totalSteps = 3;
+  const firstName = nameInput.trim().split(' ')[0] || 'Andrew';
 
   const goToStep = (nextStep: number) => {
     setStep(nextStep);
@@ -60,30 +78,21 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   };
 
   const handleNextFromStep1 = () => {
+    setValidationError(null);
+    if (!nameInput.trim()) {
+      setValidationError('Please enter your name.');
+      return;
+    }
+    const updated = { ...profile, name: nameInput.trim() };
+    setProfile(updated);
     goToStep(2);
   };
 
   const handleNextFromStep2 = () => {
     setValidationError(null);
-    if (!firstNameInput.trim()) {
-      setValidationError('Please enter your first name.');
-      return;
-    }
-    const age = parseInt(ageInput);
-    if (!age || age <= 0 || age > 120) {
-      setValidationError('Please enter a valid age.');
-      return;
-    }
-    const rawWeight = parseFloat(weightInput);
-    if (!rawWeight || rawWeight <= 0) {
-      setValidationError(`Please enter your current weight in ${isImperial ? 'lbs' : 'kg'}.`);
-      return;
-    }
-    const rawHeight = parseFloat(heightInput);
-    if (!rawHeight || rawHeight <= 0) {
-      setValidationError(`Please enter your height in ${isImperial ? 'inches' : 'cm'}.`);
-      return;
-    }
+    const age = parseInt(ageInput) || 28;
+    const rawWeight = parseFloat(weightInput) || 75;
+    const rawHeight = parseFloat(heightInput) || 178;
 
     const weightKg = isImperial ? rawWeight / 2.20462 : rawWeight;
     const heightCm = isImperial ? rawHeight * 2.54 : rawHeight;
@@ -91,9 +100,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     const roundedWeight = Math.round(weightKg * 10) / 10;
     const roundedHeight = Math.round(heightCm);
 
-    // Calculate baseline targets
+    // BMR & Target Calculation
     let bmr = 10 * roundedWeight + 6.25 * roundedHeight - 5 * age;
-    if (profile.sex === 'female') bmr -= 161;
+    if (sexInput === 'female') bmr -= 161;
     else bmr += 5;
 
     const tdee = Math.round(bmr * 1.375);
@@ -103,12 +112,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
     const pro = Math.round(roundedWeight * 2.0);
 
-    const fullName = `${firstNameInput.trim()} ${lastNameInput.trim()}`.trim();
-
-    const updated = {
+    const updated: UserProfile = {
       ...profile,
-      name: fullName,
+      name: nameInput.trim() || 'User',
       age,
+      sex: sexInput,
       weightKg: roundedWeight,
       heightCm: roundedHeight,
       calorieTarget: cal,
@@ -118,12 +126,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     setProfile(updated);
     setCalTargetInput(cal.toString());
     setProTargetInput(pro.toString());
-    onSaveStepProfile({ ...updated, onboardingStep: 3 });
     goToStep(3);
   };
 
-  const handleCompleteOnboarding = () => {
-    setValidationError(null);
+  const handleComplete = () => {
     const cal = parseInt(calTargetInput) || profile.calorieTarget || 2000;
     const pro = parseInt(proTargetInput) || profile.proteinTargetG || 150;
 
@@ -139,394 +145,513 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.98 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="fixed inset-0 z-50 bg-[#0D0E12] text-white flex flex-col justify-between sm:max-w-md sm:mx-auto overflow-y-auto sm:border-x sm:border-white/10"
-    >
-      {/* Header Progress (Only visible for steps 1, 2, 3) */}
+    <div className="fixed inset-0 z-50 bg-black text-white flex flex-col justify-between max-w-md mx-auto overflow-y-auto select-none">
+      {/* Top Header Bar for Steps 1, 2, 3 */}
       {step > 0 && (
-        <div className="sticky top-0 z-20 bg-[#0D0E12]/90 backdrop-blur-md px-5 py-4 flex items-center justify-between border-b border-white/10">
-          {step > 1 ? (
-            <button
-              onClick={() => goToStep(step - 1)}
-              className="w-9 h-9 rounded-full bg-[#181A20] border border-white/10 flex items-center justify-center text-zinc-300 hover:text-white transition-all active:scale-95"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-          ) : (
-            <button
-              onClick={() => goToStep(0)}
-              className="w-9 h-9 rounded-full bg-[#181A20] border border-white/10 flex items-center justify-center text-zinc-300 hover:text-white transition-all active:scale-95"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-          )}
+        <div className="sticky top-0 z-20 bg-black/90 backdrop-blur-md px-6 py-4 flex items-center justify-between border-b border-white/5">
+          <button
+            onClick={() => goToStep(step - 1)}
+            className="w-9 h-9 rounded-full bg-[#12141A] border border-white/10 flex items-center justify-center text-zinc-300 hover:text-white transition-all active:scale-95"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
 
-          <div className="flex items-center space-x-2">
-            <span className="text-[11px] font-bold text-zinc-400">Step {step} of {totalSteps}</span>
-            <div className="flex space-x-1.5">
-              {Array.from({ length: totalSteps }).map((_, idx) => (
-                <div
-                  key={idx}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    idx + 1 <= step ? 'w-5 bg-[#00D084]' : 'w-1.5 bg-zinc-800'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
+          <span className="text-xs font-medium text-zinc-500 font-mono">
+            Step {step} of 3
+          </span>
 
           <div className="w-9" />
         </div>
       )}
 
       <AnimatePresence mode="wait">
-        {/* Step 0: Welcome Splash Screen matching Image 1 */}
+        {/* STEP 0: Living Particle Sphere Splash Screen (Matching Screen 1) */}
         {step === 0 && (
           <motion.div
             key="step0"
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ duration: 0.3 }}
-            className="px-6 py-10 flex-1 flex flex-col justify-between items-center text-center bg-black"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="px-6 py-8 flex-1 flex flex-col justify-between items-center text-center bg-black"
           >
-            {/* Top Status Space */}
-            <div className="w-full flex justify-end">
-              <span className="text-[10px] text-zinc-600 font-mono">9:41</span>
+            {/* Status bar mock */}
+            <div className="w-full flex justify-between items-center text-zinc-600 text-xs font-mono">
+              <span>9:41</span>
             </div>
 
-            {/* Middle Logo & Taglines */}
-            <div className="my-auto py-12 flex flex-col items-center justify-center space-y-8">
-              <KinbodyIcon className="w-24 h-24 sm:w-28 sm:h-28" />
-              
-              <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight font-sans">
-                kinbody
-              </h1>
+            {/* Middle: Living Particle Sphere & Animated Logo */}
+            <div className="my-auto py-6 flex flex-col items-center justify-center space-y-6">
+              <LivingParticleLogo className="w-60 h-60" />
 
-              <div className="space-y-2 max-w-xs mx-auto pt-4">
-                <h2 className="text-lg font-bold text-white tracking-wide">
+              {/* Down Arrow pointing to Kinbody logo */}
+              <motion.div
+                animate={{ y: [0, 4, 0] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                className="text-emerald-400"
+              >
+                <ArrowDown className="w-5 h-5 stroke-[2.5]" />
+              </motion.div>
+
+              {/* Logo & Tagline */}
+              <div className="flex items-center space-x-2.5 pt-1">
+                <KinbodyIcon className="w-9 h-9" />
+                <span className="text-3xl font-black text-white tracking-tight">
+                  kinbody
+                </span>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <h1 className="text-xl font-bold text-white tracking-tight">
                   Track. Understand. Evolve.
-                </h2>
+                </h1>
                 <p className="text-xs text-zinc-400 font-normal leading-relaxed">
                   Your meals, body and activity.<br />All in one place.
                 </p>
               </div>
             </div>
 
-            {/* Bottom Button & Page Indicators */}
+            {/* Bottom Button & Pagination Dots */}
             <div className="w-full space-y-6 pb-4">
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={() => goToStep(1)}
-                className="w-full bg-[#00D084] hover:bg-[#00B370] text-black font-extrabold py-4 rounded-2xl transition-all shadow-xl shadow-[#00D084]/20 text-base flex items-center justify-center space-x-2"
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold py-4 rounded-full transition-all text-sm flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20"
               >
                 <span>Get Started</span>
-                <ArrowRight className="w-5 h-5 stroke-[2.5]" />
+                <ArrowRight className="w-4 h-4 stroke-[2.5]" />
               </motion.button>
 
               {/* 3 Pagination Dots */}
               <div className="flex items-center justify-center space-x-2">
-                <div className="w-2 h-2 rounded-full bg-[#00D084]" />
-                <div className="w-2 h-2 rounded-full bg-zinc-700" />
-                <div className="w-2 h-2 rounded-full bg-zinc-700" />
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <div className="w-2 h-2 rounded-full bg-zinc-800" />
+                <div className="w-2 h-2 rounded-full bg-zinc-800" />
               </div>
             </div>
           </motion.div>
         )}
 
-        {/* Step 1: Main Goal */}
+        {/* STEP 1: Name Input with Kin Companion Guide (Matching Screen 2) */}
         {step === 1 && (
           <motion.div
             key="step1"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="px-6 py-8 flex-1 flex flex-col justify-between"
+            className="px-6 py-6 flex-1 flex flex-col justify-between"
           >
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Profile Setup</span>
-                </div>
-                <h1 className="text-2xl font-black text-white tracking-tight">
-                  What is your main goal?
-                </h1>
-                <p className="text-xs text-zinc-400 leading-relaxed">
-                  Select your primary objective to calculate personalized energy and protein starting targets.
-                </p>
-              </div>
+            <div className="space-y-8 pt-4">
+              {/* Kin Companion Blob with Speech Bubble */}
+              <KinCompanion
+                size="lg"
+                message={
+                  <span>
+                    Hey there! 👋<br />
+                    I'm Kin. I'll be your companion on your health journey.
+                  </span>
+                }
+              />
 
-              <div className="space-y-2.5">
-                {[
-                  { id: 'lose_fat', label: 'Lose Fat', detail: 'Caloric deficit focused on preserving lean muscle mass' },
-                  { id: 'build_muscle', label: 'Build Muscle', detail: 'Caloric surplus optimized for hypertrophy and strength' },
-                  { id: 'maintain', label: 'Maintain Weight', detail: 'Maintenance energy to keep your current weight steady' },
-                  { id: 'body_recomposition', label: 'Improve Performance', detail: 'Slight deficit or maintenance with high protein target' },
-                ].map((opt) => {
-                  const isSelected = profile.goal === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      onClick={() => setProfile({ ...profile, goal: opt.id as UserGoal })}
-                      className={`w-full p-4 rounded-2xl border text-left transition-all flex items-start justify-between ${
-                        isSelected
-                          ? 'bg-emerald-500/10 border-emerald-400 text-white shadow-md'
-                          : 'bg-[#181A20] border-white/10 text-zinc-300 hover:text-white'
-                      }`}
-                    >
-                      <div>
-                        <span className="text-xs font-bold block text-white">{opt.label}</span>
-                        <span className="text-[11px] text-zinc-400 block mt-0.5">{opt.detail}</span>
-                      </div>
-                      {isSelected && <Check className="w-4 h-4 text-emerald-400 stroke-[3] shrink-0 mt-0.5" />}
-                    </button>
-                  );
-                })}
+              {/* Title & Input */}
+              <div className="space-y-6 pt-2">
+                <div>
+                  <h2 className="text-2xl font-black text-white tracking-tight">
+                    What should I call you?
+                  </h2>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    This helps personalise your experience.
+                  </p>
+                </div>
+
+                {validationError && (
+                  <div className="text-xs text-red-400 font-medium">
+                    {validationError}
+                  </div>
+                )}
+
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500">
+                    <UserIcon className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="text"
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    placeholder="Your name"
+                    autoFocus
+                    className="w-full bg-[#12141A] border border-white/10 rounded-2xl pl-11 pr-4 py-4 text-white text-base focus:outline-none focus:border-emerald-500 placeholder-zinc-600 transition-colors"
+                  />
+                </div>
               </div>
             </div>
 
-            <button
-              onClick={handleNextFromStep1}
-              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold py-4 rounded-2xl transition-all shadow-lg shadow-emerald-500/20 my-4 text-xs flex items-center justify-center space-x-2"
-            >
-              <span>Continue</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            {/* Bottom Button & Pagination Dots */}
+            <div className="space-y-6 pb-6">
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={handleNextFromStep1}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold py-4 rounded-full transition-all text-sm flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20"
+              >
+                <span>Next</span>
+                <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+              </motion.button>
+
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-2 h-2 rounded-full bg-zinc-800" />
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <div className="w-2 h-2 rounded-full bg-zinc-800" />
+              </div>
+            </div>
           </motion.div>
         )}
 
-        {/* Step 2: About You */}
+        {/* STEP 2: Basics Selection Rows (Matching Screen 3) */}
         {step === 2 && (
           <motion.div
             key="step2"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="px-6 py-8 flex-1 flex flex-col justify-between"
+            className="px-6 py-6 flex-1 flex flex-col justify-between"
           >
-            <div className="space-y-6">
+            <div className="space-y-6 pt-2">
+              {/* Kin Companion Blob */}
+              <KinCompanion
+                size="md"
+                message={
+                  <span>
+                    Nice to meet you, <span className="text-emerald-400 font-bold">{firstName}! 💚</span><br />
+                    Let's set you up.
+                  </span>
+                }
+              />
+
               <div>
-                <h2 className="text-xl font-black text-white tracking-tight">
-                  About You
+                <h2 className="text-2xl font-black text-white tracking-tight">
+                  Let's get some basics set up.
                 </h2>
                 <p className="text-xs text-zinc-400 mt-1">
-                  Enter your physical metrics to establish your accurate starting baseline.
+                  We'll tailor Kinbody to you.
                 </p>
               </div>
 
-              {validationError && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-xs text-red-300">
-                  {validationError}
-                </div>
-              )}
+              {/* Unit Toggle */}
+              <div className="flex items-center justify-between p-1.5 bg-[#12141A] border border-white/10 rounded-2xl text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setProfile({ ...profile, unitSystem: 'metric' })}
+                  className={`flex-1 py-2 rounded-xl transition-all ${
+                    !isImperial
+                      ? 'bg-emerald-500 text-black shadow-md'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Metric (kg / cm)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProfile({ ...profile, unitSystem: 'imperial' })}
+                  className={`flex-1 py-2 rounded-xl transition-all ${
+                    isImperial
+                      ? 'bg-emerald-500 text-black shadow-md'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Imperial (lbs / in)
+                </button>
+              </div>
 
-              <div className="space-y-4">
-                {/* Preferred Units */}
-                <div>
-                  <label className="text-xs text-zinc-400 font-semibold block mb-1.5">
-                    Unit Preference
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { id: 'metric', label: 'Metric (kg / cm)' },
-                      { id: 'imperial', label: 'Imperial (lbs / in)' },
-                    ].map((u) => {
-                      const isSel = profile.unitSystem === u.id;
-                      return (
+              {/* Interactive Row Cards matching Screen 3 */}
+              <div className="space-y-3">
+                {/* Row 1: Age */}
+                <div className="bg-[#12141A] border border-white/10 rounded-2xl overflow-hidden">
+                  <button
+                    onClick={() =>
+                      setActiveEditingBasics(activeEditingBasics === 'age' ? null : 'age')
+                    }
+                    className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors text-left"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-white block">Age</span>
+                        <span className="text-xs text-zinc-400">
+                          {ageInput ? `${ageInput} years` : 'Not set'}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight
+                      className={`w-4 h-4 text-zinc-500 transition-transform ${
+                        activeEditingBasics === 'age' ? 'rotate-90' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {activeEditingBasics === 'age' && (
+                    <div className="px-4 pb-4 pt-1 border-t border-white/5">
+                      <input
+                        type="number"
+                        value={ageInput}
+                        onChange={(e) => setAgeInput(e.target.value)}
+                        placeholder="e.g. 28"
+                        autoFocus
+                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Row 2: Sex */}
+                <div className="bg-[#12141A] border border-white/10 rounded-2xl overflow-hidden">
+                  <button
+                    onClick={() =>
+                      setActiveEditingBasics(activeEditingBasics === 'sex' ? null : 'sex')
+                    }
+                    className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors text-left"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
+                        <UserIcon className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-white block">Sex</span>
+                        <span className="text-xs text-zinc-400 capitalize">
+                          {sexInput || 'Not set'}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight
+                      className={`w-4 h-4 text-zinc-500 transition-transform ${
+                        activeEditingBasics === 'sex' ? 'rotate-90' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {activeEditingBasics === 'sex' && (
+                    <div className="px-4 pb-4 pt-1 border-t border-white/5 grid grid-cols-3 gap-2">
+                      {(['male', 'female', 'other'] as const).map((s) => (
                         <button
-                          key={u.id}
+                          key={s}
                           type="button"
-                          onClick={() => {
-                            const newSys = u.id as UnitSystem;
-                            setProfile({ ...profile, unitSystem: newSys });
-                          }}
-                          className={`p-3 rounded-xl border text-xs font-bold text-center transition-all ${
-                            isSel
-                              ? 'bg-emerald-500/10 border-emerald-400 text-white'
-                              : 'bg-[#181A20] border-white/10 text-zinc-400'
+                          onClick={() => setSexInput(s)}
+                          className={`py-2 px-3 rounded-xl border text-xs font-bold capitalize transition-all ${
+                            sexInput === s
+                              ? 'bg-emerald-500 text-black border-emerald-400'
+                              : 'bg-black border-white/10 text-zinc-400 hover:text-white'
                           }`}
                         >
-                          {u.label}
+                          {s}
                         </button>
-                      );
-                    })}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-zinc-400 font-semibold block mb-1">
-                      First Name
-                    </label>
-                    <input
-                      type="text"
-                      value={firstNameInput}
-                      onChange={(e) => setFirstNameInput(e.target.value)}
-                      placeholder="e.g. Alex"
-                      className="w-full bg-[#181A20] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-400 placeholder-zinc-600"
+                {/* Row 3: Height */}
+                <div className="bg-[#12141A] border border-white/10 rounded-2xl overflow-hidden">
+                  <button
+                    onClick={() =>
+                      setActiveEditingBasics(activeEditingBasics === 'height' ? null : 'height')
+                    }
+                    className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors text-left"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
+                        <Ruler className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-white block">Height</span>
+                        <span className="text-xs text-zinc-400">
+                          {heightInput
+                            ? `${heightInput} ${isImperial ? 'in' : 'cm'}`
+                            : 'Not set'}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight
+                      className={`w-4 h-4 text-zinc-500 transition-transform ${
+                        activeEditingBasics === 'height' ? 'rotate-90' : ''
+                      }`}
                     />
-                  </div>
-                  <div>
-                    <label className="text-xs text-zinc-400 font-semibold block mb-1">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      value={lastNameInput}
-                      onChange={(e) => setLastNameInput(e.target.value)}
-                      placeholder="e.g. Morgan"
-                      className="w-full bg-[#181A20] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-400 placeholder-zinc-600"
-                    />
-                  </div>
+                  </button>
+
+                  {activeEditingBasics === 'height' && (
+                    <div className="px-4 pb-4 pt-1 border-t border-white/5">
+                      <input
+                        type="number"
+                        value={heightInput}
+                        onChange={(e) => setHeightInput(e.target.value)}
+                        placeholder={isImperial ? 'e.g. 70' : 'e.g. 178'}
+                        autoFocus
+                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-zinc-400 font-semibold block mb-1">
-                      Age
-                    </label>
-                    <input
-                      type="number"
-                      value={ageInput}
-                      onChange={(e) => setAgeInput(e.target.value)}
-                      placeholder="e.g. 28"
-                      className="w-full bg-[#181A20] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-400 placeholder-zinc-600"
+                {/* Row 4: Weight */}
+                <div className="bg-[#12141A] border border-white/10 rounded-2xl overflow-hidden">
+                  <button
+                    onClick={() =>
+                      setActiveEditingBasics(activeEditingBasics === 'weight' ? null : 'weight')
+                    }
+                    className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors text-left"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
+                        <Scale className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-white block">Weight</span>
+                        <span className="text-xs text-zinc-400">
+                          {weightInput
+                            ? `${weightInput} ${isImperial ? 'lbs' : 'kg'}`
+                            : 'Not set'}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight
+                      className={`w-4 h-4 text-zinc-500 transition-transform ${
+                        activeEditingBasics === 'weight' ? 'rotate-90' : ''
+                      }`}
                     />
-                  </div>
-                  <div>
-                    <label className="text-xs text-zinc-400 font-semibold block mb-1">
-                      Sex
-                    </label>
-                    <select
-                      value={profile.sex}
-                      onChange={(e) => setProfile({ ...profile, sex: e.target.value as any })}
-                      className="w-full bg-[#181A20] border border-white/10 rounded-xl px-3 py-3 text-white text-sm focus:outline-none focus:border-emerald-400"
-                    >
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-                </div>
+                  </button>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-zinc-400 font-semibold block mb-1">
-                      Height ({isImperial ? 'inches' : 'cm'})
-                    </label>
-                    <input
-                      type="number"
-                      value={heightInput}
-                      onChange={(e) => setHeightInput(e.target.value)}
-                      placeholder={isImperial ? 'e.g. 70' : 'e.g. 178'}
-                      className="w-full bg-[#181A20] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-400 placeholder-zinc-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-zinc-400 font-semibold block mb-1">
-                      Current Weight ({isImperial ? 'lbs' : 'kg'})
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={weightInput}
-                      onChange={(e) => setWeightInput(e.target.value)}
-                      placeholder={isImperial ? 'e.g. 175' : 'e.g. 80'}
-                      className="w-full bg-[#181A20] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-400 placeholder-zinc-600 font-bold"
-                    />
-                  </div>
+                  {activeEditingBasics === 'weight' && (
+                    <div className="px-4 pb-4 pt-1 border-t border-white/5">
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={weightInput}
+                        onChange={(e) => setWeightInput(e.target.value)}
+                        placeholder={isImperial ? 'e.g. 165' : 'e.g. 75'}
+                        autoFocus
+                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            <button
-              onClick={handleNextFromStep2}
-              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold py-4 rounded-2xl transition-all shadow-lg shadow-emerald-500/20 my-4 text-xs flex items-center justify-center space-x-2"
-            >
-              <span>Calculate Targets</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            {/* Bottom Button & Pagination Dots */}
+            <div className="space-y-6 pb-6 pt-4">
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={handleNextFromStep2}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold py-4 rounded-full transition-all text-sm flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20"
+              >
+                <span>Next</span>
+                <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+              </motion.button>
+
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-2 h-2 rounded-full bg-zinc-800" />
+                <div className="w-2 h-2 rounded-full bg-zinc-800" />
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              </div>
+            </div>
           </motion.div>
         )}
 
-        {/* Step 3: Targets */}
+        {/* STEP 3: Goals & Targets Setup */}
         {step === 3 && (
           <motion.div
             key="step3"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="px-6 py-8 flex-1 flex flex-col justify-between"
+            className="px-6 py-6 flex-1 flex flex-col justify-between"
           >
-            <div className="space-y-6">
+            <div className="space-y-6 pt-2">
+              <KinCompanion
+                size="md"
+                message={<span>All set up! Let's choose your main health goal.</span>}
+              />
+
               <div>
                 <h2 className="text-xl font-black text-white tracking-tight">
-                  Your Daily Macro Targets
+                  Your Primary Goal
                 </h2>
                 <p className="text-xs text-zinc-400 mt-1">
-                  Proposed starting targets based on your goal and body metrics. You can edit them now or adjust later.
+                  Select an objective to fine-tune your energy and protein targets.
                 </p>
               </div>
 
-              {validationError && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-xs text-red-300">
-                  {validationError}
-                </div>
-              )}
+              <div className="space-y-2">
+                {[
+                  { id: 'lose_fat', label: 'Lose Fat', detail: 'Deficit focused on preserving lean muscle' },
+                  { id: 'build_muscle', label: 'Build Muscle', detail: 'Surplus optimized for muscle growth' },
+                  { id: 'maintain', label: 'Maintain Weight', detail: 'Maintenance energy to keep weight steady' },
+                  { id: 'body_recomposition', label: 'Improve Performance', detail: 'Slight deficit with high protein focus' },
+                ].map((opt) => {
+                  const isSelected = profile.goal === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setProfile({ ...profile, goal: opt.id as UserGoal })}
+                      className={`w-full p-3.5 rounded-2xl border text-left transition-all flex items-center justify-between ${
+                        isSelected
+                          ? 'bg-emerald-500/10 border-emerald-400 text-white'
+                          : 'bg-[#12141A] border-white/10 text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      <div>
+                        <span className="text-xs font-bold block text-white">{opt.label}</span>
+                        <span className="text-[11px] text-zinc-400 block mt-0.5">{opt.detail}</span>
+                      </div>
+                      {isSelected && <Check className="w-4 h-4 text-emerald-400 stroke-[3]" />}
+                    </button>
+                  );
+                })}
+              </div>
 
-              <div className="space-y-4">
-                <div className="bg-[#181A20] border border-white/10 rounded-2xl p-5 space-y-4">
+              {/* Target Preview */}
+              <div className="bg-[#12141A] border border-white/10 rounded-2xl p-4 space-y-3">
+                <span className="text-xs font-bold text-zinc-400 block">Calculated Targets</span>
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-zinc-300 block mb-1 flex items-center justify-between">
-                      <span>Daily Energy Target (kcal)</span>
-                      <Flame className="w-4 h-4 text-orange-400" />
+                    <label className="text-[10px] text-zinc-500 font-bold block mb-1">
+                      Calories (kcal)
                     </label>
                     <input
                       type="number"
                       value={calTargetInput}
                       onChange={(e) => setCalTargetInput(e.target.value)}
-                      className="w-full bg-[#121212] border border-white/10 rounded-xl px-4 py-3 text-white text-lg font-bold focus:outline-none focus:border-emerald-400"
+                      className="w-full bg-black border border-white/10 rounded-xl px-3 py-2 text-white text-base font-bold focus:outline-none focus:border-emerald-500"
                     />
                   </div>
-
                   <div>
-                    <label className="text-xs font-bold text-zinc-300 block mb-1 flex items-center justify-between">
-                      <span>Daily Protein Target (grams)</span>
-                      <Scale className="w-4 h-4 text-emerald-400" />
+                    <label className="text-[10px] text-zinc-500 font-bold block mb-1">
+                      Protein (g)
                     </label>
                     <input
                       type="number"
                       value={proTargetInput}
                       onChange={(e) => setProTargetInput(e.target.value)}
-                      className="w-full bg-[#121212] border border-white/10 rounded-xl px-4 py-3 text-white text-lg font-bold focus:outline-none focus:border-emerald-400"
+                      className="w-full bg-black border border-white/10 rounded-xl px-3 py-2 text-emerald-400 text-base font-bold focus:outline-none focus:border-emerald-500"
                     />
                   </div>
-                </div>
-
-                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-xs text-emerald-300 space-y-1">
-                  <p className="font-bold">Ready for a clean start</p>
-                  <p className="text-[11px] text-emerald-400/80">
-                    Your profile will begin with zero food entries, zero scans, and no workout history.
-                  </p>
                 </div>
               </div>
             </div>
 
-            <button
-              onClick={handleCompleteOnboarding}
-              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold py-4 rounded-2xl transition-all shadow-lg shadow-emerald-500/20 my-4 text-xs flex items-center justify-center space-x-2"
-            >
-              <span>Start Logging</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            <div className="pb-6 pt-4">
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={handleComplete}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold py-4 rounded-full transition-all text-sm flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20"
+              >
+                <span>Start Logging</span>
+                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+              </motion.button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 };
