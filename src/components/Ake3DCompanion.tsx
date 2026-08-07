@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useEffect, useRef, useState, memo } from 'react';
+import { motion } from 'motion/react';
 import * as THREE from 'three';
 
 interface Ake3DCompanionProps {
@@ -10,10 +10,11 @@ interface Ake3DCompanionProps {
   className?: string;
   interactive?: boolean;
   autoWave?: boolean;
-  compact?: boolean; // if true, omits background particles/ground for tight spaces
+  alignBubble?: 'center' | 'left' | 'right';
+  enableMotionBlur?: boolean;
 }
 
-export const Ake3DCompanion: React.FC<Ake3DCompanionProps> = ({
+export const Ake3DCompanion: React.FC<Ake3DCompanionProps> = memo(({
   size = 'lg',
   message,
   submessage,
@@ -21,143 +22,155 @@ export const Ake3DCompanion: React.FC<Ake3DCompanionProps> = ({
   className = '',
   interactive = true,
   autoWave = true,
-  compact = false,
+  alignBubble = 'center',
+  enableMotionBlur = false,
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [isWaving, setIsWaving] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Size mapping for canvas dimensions
+  // Locked container aspect ratio and responsive scaling bounds
   const sizeMap = {
-    sm: 'w-20 h-20',
-    md: 'w-32 h-32',
-    lg: 'w-44 h-44 sm:w-52 sm:h-52',
-    xl: 'w-56 h-56 sm:w-64 sm:h-64',
-    full: 'w-full h-64 sm:h-80',
+    sm: 'w-24 h-24 max-w-[96px] aspect-square',
+    md: 'w-36 h-36 max-w-[144px] aspect-square',
+    lg: 'w-52 h-52 sm:w-60 sm:h-60 max-w-[240px] aspect-square',
+    xl: 'w-64 h-64 sm:w-72 sm:h-72 max-w-[288px] aspect-square',
+    full: 'w-full max-w-sm h-64 sm:h-80 aspect-square',
   };
 
-  const canvasClass = sizeMap[size];
-
-  // Ref to trigger wave programmatically
+  const canvasClass = sizeMap[size] || sizeMap.lg;
   const waveTriggerRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
 
-    // 1. Scene setup
-    const scene = new THREE.Scene();
-    if (!compact) {
-      scene.fog = new THREE.FogExp2(0x020403, 0.055);
+    // Clean prior canvas elements if present to prevent duplicated WebGL contexts
+    while (mount.firstChild) {
+      mount.removeChild(mount.firstChild);
     }
 
-    const width = mount.clientWidth || 200;
-    const height = mount.clientHeight || 200;
+    // 1. Scene & Camera Setup
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x020805, 0.04);
 
-    const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 100);
-    camera.position.set(0, 0.2, 6.2);
+    const width = mount.clientWidth || 220;
+    const height = mount.clientHeight || 220;
 
+    const camera = new THREE.PerspectiveCamera(34, width / height, 0.1, 100);
+    camera.position.set(0, 0.2, 7.2);
+
+    // 2. WebGL Renderer
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
+      premultipliedAlpha: false,
       powerPreference: 'high-performance',
     });
 
+    renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.25;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    // Clear background to transparent
-    renderer.setClearColor(0x000000, 0);
-
     mount.appendChild(renderer.domElement);
 
-    // 2. Lighting
-    const hemiLight = new THREE.HemisphereLight(0xbfffe9, 0x04100c, 2.2);
-    scene.add(hemiLight);
+    // 3. Bioluminescent Lighting setup
+    const ambient = new THREE.HemisphereLight(0xc3ffe8, 0x021a12, 2.6);
+    scene.add(ambient);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 4.5);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 4.2);
     keyLight.position.set(-3, 5, 4);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.set(1024, 1024);
     scene.add(keyLight);
 
-    const rimLight = new THREE.PointLight(0x17e7a5, 18, 10, 2);
-    rimLight.position.set(3.5, 1.5, 2.5);
+    const fillLight = new THREE.PointLight(0x00ffa8, 12, 12, 1.8);
+    fillLight.position.set(3, 1.5, 3);
+    scene.add(fillLight);
+
+    const coreGlowLight = new THREE.PointLight(0x16e39b, 16, 6, 2);
+    coreGlowLight.position.set(0, -0.4, 0.8);
+    scene.add(coreGlowLight);
+
+    const rimLight = new THREE.PointLight(0x00ffcc, 10, 8, 2);
+    rimLight.position.set(0, 3, -1);
     scene.add(rimLight);
 
-    const underGlow = new THREE.PointLight(0x00e59b, 12, 5, 2);
-    underGlow.position.set(0, -2, 1.5);
-    scene.add(underGlow);
-
-    // 3. Materials
+    // 4. Materials matching the reference bioluminescent jelly
     const bodyMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x0fe8a6,
-      roughness: 0.42,
+      color: new THREE.Color(0x0de298),
+      roughness: 0.32,
       metalness: 0.02,
-      clearcoat: 0.28,
-      clearcoatRoughness: 0.32,
-      sheen: 0.5,
-      sheenColor: new THREE.Color(0x78ffd5),
+      clearcoat: 0.65,
+      clearcoatRoughness: 0.18,
+      sheen: 0.8,
+      sheenColor: new THREE.Color(0x7cffd8),
+      transmission: 0.15, // Translucent jelly depth
+      thickness: 0.5,
+      ior: 1.35,
     });
 
     const eyeMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x050706,
-      roughness: 0.12,
-      metalness: 0.05,
-      clearcoat: 1,
-      clearcoatRoughness: 0.08,
+      color: 0x020403,
+      roughness: 0.05,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.04,
     });
 
-    const whiteMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      roughness: 0.25,
-    });
+    const whiteMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
     const mouthMaterial = new THREE.MeshStandardMaterial({
-      color: 0x07100d,
-      roughness: 0.55,
+      color: 0x06110d,
+      roughness: 0.45,
     });
 
     const tongueMaterial = new THREE.MeshStandardMaterial({
-      color: 0xff7f9f,
-      roughness: 0.55,
+      color: 0xff6b8b,
+      roughness: 0.4,
     });
 
-    // 4. Character Root
+    // 5. Character Group
     const ake = new THREE.Group();
-    ake.position.y = compact ? -0.1 : -0.2;
+    ake.position.y = -0.25;
     scene.add(ake);
 
-    // Deformed Sphere Body
-    const bodyGeometry = new THREE.SphereGeometry(1.4, 64, 48);
-    const pos = bodyGeometry.attributes.position;
-    const v = new THREE.Vector3();
+    // Teardrop Body Geometry
+    const bodyGeometry = new THREE.SphereGeometry(1.5, 96, 72);
+    const position = bodyGeometry.attributes.position;
+    const vertex = new THREE.Vector3();
 
-    for (let i = 0; i < pos.count; i++) {
-      v.fromBufferAttribute(pos, i);
+    for (let i = 0; i < position.count; i++) {
+      vertex.fromBufferAttribute(position, i);
 
-      const vertical = (v.y + 1.4) / 2.8;
-      const lowerBulge = THREE.MathUtils.lerp(1.12, 0.82, vertical);
-      v.x *= lowerBulge;
-      v.z *= THREE.MathUtils.lerp(1.08, 0.9, vertical);
+      const vertical = (vertex.y + 1.5) / 3.0;
 
-      if (v.y > 0.8) {
-        const peak = (v.y - 0.8) / 0.6;
-        v.x *= THREE.MathUtils.lerp(1, 0.42, peak);
-        v.z *= THREE.MathUtils.lerp(1, 0.42, peak);
-        v.y += peak * 0.4;
-        v.x += peak * 0.15;
+      // Lower body bulge
+      const xScale = THREE.MathUtils.lerp(1.16, 0.82, vertical);
+      const zScale = THREE.MathUtils.lerp(1.1, 0.88, vertical);
+
+      vertex.x *= xScale;
+      vertex.z *= zScale;
+
+      // Smooth wide bottom base
+      if (vertex.y < -0.6) {
+        vertex.y *= 0.85;
       }
 
-      if (v.y < -0.6) {
-        v.y *= 0.9;
+      // Curved teardrop peak
+      if (vertex.y > 0.75) {
+        const peak = (vertex.y - 0.75) / 0.75;
+        vertex.x *= THREE.MathUtils.lerp(1, 0.35, peak);
+        vertex.z *= THREE.MathUtils.lerp(1, 0.35, peak);
+        vertex.y += peak * 0.55;
+        vertex.x += peak * 0.16; // Gentle cute tilt
       }
 
-      pos.setXYZ(i, v.x, v.y, v.z);
+      position.setXYZ(i, vertex.x, vertex.y, vertex.z);
     }
 
     bodyGeometry.computeVertexNormals();
@@ -168,173 +181,163 @@ export const Ake3DCompanion: React.FC<Ake3DCompanionProps> = ({
     ake.add(body);
 
     // Eyes
-    const eyeGeometry = new THREE.SphereGeometry(0.22, 32, 24);
-
-    function createEye(x: number) {
+    function makeEye(x: number) {
       const eyeGroup = new THREE.Group();
-      eyeGroup.position.set(x, 0.15, 1.22);
+      eyeGroup.position.set(x, 0.15, 1.32);
 
-      const eyeball = new THREE.Mesh(eyeGeometry, eyeMaterial);
-      eyeball.scale.set(0.82, 1.18, 0.6);
-      eyeball.castShadow = true;
-      eyeGroup.add(eyeball);
+      const eye = new THREE.Mesh(
+        new THREE.SphereGeometry(0.24, 40, 32),
+        eyeMaterial
+      );
+      eye.scale.set(0.85, 1.15, 0.55);
+      eyeGroup.add(eye);
 
+      // Large pupil highlight like reference
       const highlight = new THREE.Mesh(
-        new THREE.SphereGeometry(0.05, 16, 12),
+        new THREE.SphereGeometry(0.065, 20, 16),
         whiteMaterial
       );
-      highlight.position.set(-0.06, 0.08, 0.15);
+      highlight.position.set(-0.06, 0.08, 0.16);
       eyeGroup.add(highlight);
+
+      // Smaller pupil sub-reflection
+      const subHighlight = new THREE.Mesh(
+        new THREE.SphereGeometry(0.03, 14, 10),
+        whiteMaterial
+      );
+      subHighlight.position.set(0.06, -0.07, 0.15);
+      eyeGroup.add(subHighlight);
 
       return eyeGroup;
     }
 
-    const leftEye = createEye(-0.4);
-    const rightEye = createEye(0.4);
+    const leftEye = makeEye(-0.43);
+    const rightEye = makeEye(0.43);
     ake.add(leftEye, rightEye);
 
     // Mouth
-    const mouthGroup = new THREE.Group();
-    mouthGroup.position.set(0, -0.42, 1.32);
-
     const mouthShape = new THREE.Shape();
-    mouthShape.moveTo(-0.26, 0.08);
-    mouthShape.quadraticCurveTo(0, -0.24, 0.26, 0.08);
-    mouthShape.quadraticCurveTo(0, -0.05, -0.26, 0.08);
+    mouthShape.moveTo(-0.28, 0.08);
+    mouthShape.quadraticCurveTo(0, -0.28, 0.28, 0.08);
+    mouthShape.quadraticCurveTo(0, -0.06, -0.28, 0.08);
 
-    const mouthMesh = new THREE.Mesh(
-      new THREE.ShapeGeometry(mouthShape, 24),
+    const mouth = new THREE.Mesh(
+      new THREE.ShapeGeometry(mouthShape, 32),
       mouthMaterial
     );
-    mouthGroup.add(mouthMesh);
+    mouth.position.set(0, -0.44, 1.41);
+    ake.add(mouth);
 
     const tongue = new THREE.Mesh(
-      new THREE.CircleGeometry(0.11, 24, 0, Math.PI),
+      new THREE.CircleGeometry(0.125, 32, 0, Math.PI),
       tongueMaterial
     );
-    tongue.position.set(0, -0.1, 0.012);
+    tongue.position.set(0, -0.55, 1.425);
     tongue.scale.y = 0.55;
-    mouthGroup.add(tongue);
+    ake.add(tongue);
 
-    ake.add(mouthGroup);
-
-    // Rosy Cheeks
+    // Rosy Pink Cheeks
     const cheekMaterial = new THREE.MeshBasicMaterial({
-      color: 0x7bffd7,
+      color: 0xff7096,
       transparent: true,
-      opacity: 0.42,
+      opacity: 0.45,
     });
 
-    function createCheek(x: number) {
+    [-0.78, 0.78].forEach((x) => {
       const cheek = new THREE.Mesh(
-        new THREE.CircleGeometry(0.11, 24),
+        new THREE.CircleGeometry(0.13, 32),
         cheekMaterial
       );
-      cheek.position.set(x, -0.26, 1.33);
-      return cheek;
-    }
-
-    ake.add(createCheek(-0.72), createCheek(0.72));
+      cheek.position.set(x, -0.26, 1.4);
+      ake.add(cheek);
+    });
 
     // Arms
-    function createArm(side: number) {
-      const armPivot = new THREE.Group();
-      armPivot.position.set(side * 1.15, -0.1, 0.15);
+    function makeArm(side: number) {
+      const pivot = new THREE.Group();
+      pivot.position.set(side * 1.18, -0.05, 0.18);
 
-      const armGeometry = new THREE.CapsuleGeometry(0.22, 0.68, 8, 20);
-      const arm = new THREE.Mesh(armGeometry, bodyMaterial);
+      const arm = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.23, 0.72, 12, 28),
+        bodyMaterial
+      );
+
+      arm.position.set(side * 0.18, -0.2, 0.08);
       arm.rotation.z = side * -0.55;
-      arm.position.set(side * 0.16, -0.2, 0.1);
       arm.castShadow = true;
-      armPivot.add(arm);
 
-      ake.add(armPivot);
-      return armPivot;
+      pivot.add(arm);
+      ake.add(pivot);
+      return pivot;
     }
 
-    const leftArm = createArm(-1);
-    const rightArm = createArm(1);
+    const leftArm = makeArm(-1);
+    const rightArm = makeArm(1);
 
     // Feet
-    const footGeometry = new THREE.SphereGeometry(0.4, 32, 24);
-    [-0.54, 0.54].forEach((x) => {
-      const foot = new THREE.Mesh(footGeometry, bodyMaterial);
-      foot.scale.set(1.15, 0.48, 1.35);
-      foot.position.set(x, -1.22, 0.15);
+    [-0.56, 0.56].forEach((x) => {
+      const foot = new THREE.Mesh(
+        new THREE.SphereGeometry(0.42, 36, 26),
+        bodyMaterial
+      );
+      foot.scale.set(1.12, 0.46, 1.3);
+      foot.position.set(x, -1.3, 0.18);
       foot.castShadow = true;
       ake.add(foot);
     });
 
-    // Ground and glow elements if not compact
-    let particles: THREE.Points | null = null;
-    let glowMesh: THREE.Mesh | null = null;
+    // Floor Soft Glow Disc
+    const glowDisc = new THREE.Mesh(
+      new THREE.CircleGeometry(2.2, 64),
+      new THREE.MeshBasicMaterial({
+        color: 0x00ffb3,
+        transparent: true,
+        opacity: 0.22,
+        depthWrite: false,
+      })
+    );
+    glowDisc.rotation.x = -Math.PI / 2;
+    glowDisc.position.y = -1.55;
+    scene.add(glowDisc);
 
-    if (!compact) {
-      const ground = new THREE.Mesh(
-        new THREE.CircleGeometry(3.8, 64),
-        new THREE.MeshStandardMaterial({
-          color: 0x07100d,
-          roughness: 0.8,
-          transparent: true,
-          opacity: 0.82,
-        })
-      );
-      ground.rotation.x = -Math.PI / 2;
-      ground.position.y = -1.55;
-      ground.receiveShadow = true;
-      scene.add(ground);
+    // Ambient Magic Particles
+    const particleCount = 50;
+    const particleGeometry = new THREE.BufferGeometry();
+    const particlePositions = new Float32Array(particleCount * 3);
 
-      glowMesh = new THREE.Mesh(
-        new THREE.CircleGeometry(2.2, 64),
-        new THREE.MeshBasicMaterial({
-          color: 0x00e59b,
-          transparent: true,
-          opacity: 0.12,
-          depthWrite: false,
-        })
-      );
-      glowMesh.rotation.x = -Math.PI / 2;
-      glowMesh.position.y = -1.52;
-      scene.add(glowMesh);
-
-      // Floating particles
-      const particleCount = 45;
-      const particleGeometry = new THREE.BufferGeometry();
-      const particlePositions = new Float32Array(particleCount * 3);
-
-      for (let i = 0; i < particleCount; i++) {
-        particlePositions[i * 3] = (Math.random() - 0.5) * 6;
-        particlePositions[i * 3 + 1] = Math.random() * 4 - 1.5;
-        particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 2.5;
-      }
-
-      particleGeometry.setAttribute(
-        'position',
-        new THREE.BufferAttribute(particlePositions, 3)
-      );
-
-      particles = new THREE.Points(
-        particleGeometry,
-        new THREE.PointsMaterial({
-          color: 0x2affc4,
-          size: 0.035,
-          transparent: true,
-          opacity: 0.7,
-          depthWrite: false,
-        })
-      );
-      scene.add(particles);
+    for (let i = 0; i < particleCount; i++) {
+      particlePositions[i * 3] = (Math.random() - 0.5) * 5.5;
+      particlePositions[i * 3 + 1] = Math.random() * 4 - 1.5;
+      particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 2.5;
     }
 
-    // 5. Interaction (Pointer Tracking & Tap to Wave)
+    particleGeometry.setAttribute(
+      'position',
+      new THREE.BufferAttribute(particlePositions, 3)
+    );
+
+    const particles = new THREE.Points(
+      particleGeometry,
+      new THREE.PointsMaterial({
+        color: 0x3dffc0,
+        size: 0.04,
+        transparent: true,
+        opacity: 0.75,
+        depthWrite: false,
+      })
+    );
+    scene.add(particles);
+
+    // 6. Interaction & Animation
     const pointer = new THREE.Vector2();
     const raycaster = new THREE.Raycaster();
-    let waveStrength = autoWave ? 1 : 0;
-    let waveTime = 0;
+
+    let waveAmount = autoWave ? 1 : 0;
+    let waveClock = 0;
 
     const triggerWave = () => {
-      waveStrength = 1;
-      waveTime = 0;
+      waveAmount = 1;
+      waveClock = 0;
       setIsWaving(true);
       setTimeout(() => setIsWaving(false), 1200);
     };
@@ -355,7 +358,8 @@ export const Ake3DCompanion: React.FC<Ake3DCompanionProps> = ({
       pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(pointer, camera);
-      const hits = raycaster.intersectObject(body);
+      const hits = raycaster.intersectObject(body, false);
+
       if (hits.length > 0 || size === 'sm' || size === 'md') {
         triggerWave();
       }
@@ -365,105 +369,103 @@ export const Ake3DCompanion: React.FC<Ake3DCompanionProps> = ({
     domElem.addEventListener('pointermove', handlePointerMove);
     domElem.addEventListener('pointerdown', handlePointerDown);
 
-    // Auto-wave once on initial mount if enabled
     if (autoWave) {
-      setTimeout(() => triggerWave(), 300);
+      setTimeout(() => triggerWave(), 200);
     }
 
-    // 6. Animation Loop
+    // Animation Loop
     const clock = new THREE.Clock();
-    let nextBlink = 2 + Math.random() * 3;
-    let blinkTime = 0;
+    let blinkCountdown = 2 + Math.random() * 3;
     let blinking = false;
+    let blinkClock = 0;
     let animFrameId = 0;
+    let firstFrameRendered = false;
 
-    const updateBlink = (delta: number) => {
-      nextBlink -= delta;
-      if (nextBlink <= 0 && !blinking) {
+    function animateBlink(delta: number) {
+      blinkCountdown -= delta;
+
+      if (blinkCountdown <= 0 && !blinking) {
         blinking = true;
-        blinkTime = 0;
+        blinkClock = 0;
       }
 
-      if (blinking) {
-        blinkTime += delta;
-        const blink = Math.sin(Math.min(blinkTime / 0.16, 1) * Math.PI);
-        const scaleY = Math.max(0.08, 1 - blink);
+      if (!blinking) return;
 
-        leftEye.scale.y = scaleY;
-        rightEye.scale.y = scaleY;
+      blinkClock += delta;
+      const t = Math.min(blinkClock / 0.18, 1);
+      const squash = Math.sin(t * Math.PI);
+      const scaleY = Math.max(0.08, 1 - squash);
 
-        if (blinkTime >= 0.16) {
-          blinking = false;
-          nextBlink = 2.2 + Math.random() * 4;
-          leftEye.scale.y = 1;
-          rightEye.scale.y = 1;
-        }
+      leftEye.scale.y = scaleY;
+      rightEye.scale.y = scaleY;
+
+      if (t >= 1) {
+        blinking = false;
+        blinkCountdown = 2.2 + Math.random() * 4;
+        leftEye.scale.y = 1;
+        rightEye.scale.y = 1;
       }
-    };
+    }
 
-    const animate = () => {
+    function animate() {
       animFrameId = requestAnimationFrame(animate);
 
       const delta = Math.min(clock.getDelta(), 0.05);
       const elapsed = clock.elapsedTime;
 
-      updateBlink(delta);
+      animateBlink(delta);
 
-      // Breathing and gentle float
-      const breathe = 1 + Math.sin(elapsed * 2.2) * 0.025;
-      body.scale.set(1 / breathe, breathe, 1 / breathe);
-      ake.position.y = (compact ? -0.1 : -0.2) + Math.sin(elapsed * 1.65) * 0.05;
+      // Gentle breathing scale
+      const breathing = 1 + Math.sin(elapsed * 2.1) * 0.024;
+      body.scale.set(1 / breathing, breathing, 1 / breathing);
 
-      // Pointer tracking smooth lerp
-      const targetRotationY = pointer.x * 0.22;
-      const targetRotationX = pointer.y * 0.12;
-      ake.rotation.y += (targetRotationY - ake.rotation.y) * 0.05;
-      ake.rotation.x += (targetRotationX - ake.rotation.x) * 0.05;
+      // Soft float
+      ake.position.y = -0.25 + Math.sin(elapsed * 1.55) * 0.05;
 
-      // Eye tracking
-      const eyeX = pointer.x * 0.04;
-      const eyeY = pointer.y * 0.03;
-      [leftEye, rightEye].forEach((eye) => {
-        eye.children[0].rotation.y = eyeX;
-        eye.children[0].rotation.x = -eyeY;
-      });
+      // Pointer rotation tracking
+      const targetY = pointer.x * 0.22;
+      const targetX = pointer.y * 0.1;
 
-      // Idle left arm movement
-      leftArm.rotation.z = -0.08 + Math.sin(elapsed * 1.5) * 0.025;
+      ake.rotation.y += (targetY - ake.rotation.y) * 0.05;
+      ake.rotation.x += (targetX - ake.rotation.x) * 0.05;
+
+      // Idle left arm
+      leftArm.rotation.z = -0.05 + Math.sin(elapsed * 1.4) * 0.025;
 
       // Waving right arm
-      if (waveStrength > 0.001) {
-        waveTime += delta;
-        waveStrength *= 0.972;
+      if (waveAmount > 0.002) {
+        waveClock += delta;
+        waveAmount *= 0.975;
 
-        rightArm.rotation.z =
-          1.55 + Math.sin(waveTime * 12) * 0.45 * waveStrength;
-        rightArm.rotation.x = -0.2;
+        const armAngle = 1.65 + Math.sin(waveClock * 12) * 0.45 * waveAmount;
+        rightArm.rotation.z = armAngle;
+        rightArm.rotation.x = -0.22;
+        rightArm.scale.set(1, 1, 1);
       } else {
-        rightArm.rotation.z += (0.08 - rightArm.rotation.z) * 0.08;
+        rightArm.rotation.z += (0.05 - rightArm.rotation.z) * 0.08;
         rightArm.rotation.x += (0 - rightArm.rotation.x) * 0.08;
+        rightArm.scale.set(1, 1, 1);
       }
 
-      if (particles) {
-        particles.rotation.y = elapsed * 0.025;
-        particles.position.y = Math.sin(elapsed * 0.45) * 0.08;
-      }
-
-      if (glowMesh) {
-        (glowMesh.material as THREE.MeshBasicMaterial).opacity =
-          0.1 + Math.sin(elapsed * 2) * 0.025;
-      }
+      // Rotate magic particles & glow pulsing
+      particles.rotation.y = elapsed * 0.03;
+      glowDisc.material.opacity = 0.18 + Math.sin(elapsed * 2) * 0.04;
 
       renderer.render(scene, camera);
-    };
+
+      if (!firstFrameRendered) {
+        firstFrameRendered = true;
+        setIsLoaded(true);
+      }
+    }
 
     animate();
 
-    // 7. Responsive Resize Observer
+    // Responsive Resize Observer with aspect ratio lock
     const resizeObserver = new ResizeObserver(() => {
       if (!mount) return;
-      const newWidth = mount.clientWidth || 200;
-      const newHeight = mount.clientHeight || 200;
+      const newWidth = mount.clientWidth || 220;
+      const newHeight = mount.clientHeight || 220;
       camera.aspect = newWidth / newHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(newWidth, newHeight);
@@ -471,19 +473,16 @@ export const Ake3DCompanion: React.FC<Ake3DCompanionProps> = ({
 
     resizeObserver.observe(mount);
 
-    // Cleanup on unmount
     return () => {
       cancelAnimationFrame(animFrameId);
       domElem.removeEventListener('pointermove', handlePointerMove);
       domElem.removeEventListener('pointerdown', handlePointerDown);
       resizeObserver.disconnect();
 
-      // Dispose Three.js objects
       scene.clear();
       renderer.dispose();
       bodyGeometry.dispose();
       bodyMaterial.dispose();
-      eyeGeometry.dispose();
       eyeMaterial.dispose();
       whiteMaterial.dispose();
       mouthMaterial.dispose();
@@ -494,45 +493,54 @@ export const Ake3DCompanion: React.FC<Ake3DCompanionProps> = ({
         mount.removeChild(domElem);
       }
     };
-  }, [compact, interactive, size, autoWave]);
+  }, []);
+
+  const bubbleTailAlignment = {
+    center: 'left-1/2 -translate-x-1/2',
+    left: 'left-8',
+    right: 'right-8',
+  }[alignBubble];
 
   return (
     <div className={`relative flex flex-col items-center justify-center select-none ${className}`}>
-      {/* Optional Speech Bubble */}
+      {/* Speech Bubble */}
       {showBubble && message && (
         <motion.div
-          initial={{ opacity: 0, y: 8, scale: 0.95 }}
+          initial={{ opacity: 0, y: 6, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.3 }}
-          className="relative mb-2 max-w-xs bg-[#121614]/90 border border-white/10 rounded-2xl px-4 py-3 shadow-2xl text-center backdrop-blur-md z-20"
+          transition={{ duration: 0.25 }}
+          className="relative mb-2 max-w-xs bg-[#101413]/95 border border-white/10 rounded-2xl px-4 py-3 shadow-2xl text-center backdrop-blur-md z-20"
         >
           <div className="text-sm font-semibold text-white leading-snug">
             {message}
           </div>
           {submessage && (
-            <div className="text-xs text-zinc-400 mt-1 leading-relaxed">
+            <div className="text-xs text-zinc-400 mt-0.5 leading-relaxed">
               {submessage}
             </div>
           )}
-          {/* Subtle bubble tail */}
-          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#121614] border-r border-b border-white/10 rotate-45" />
+          {/* Speech Bubble Tail */}
+          <div className={`absolute -bottom-1.5 ${bubbleTailAlignment} w-3 h-3 bg-[#101413] border-r border-b border-white/10 rotate-45`} />
         </motion.div>
       )}
 
-      {/* 3D Canvas Container */}
+      {/* 3D Canvas Container with Coordinated Crisp Fade-In */}
       <div
         onClick={() => waveTriggerRef.current?.()}
-        className={`relative ${canvasClass} flex items-center justify-center cursor-pointer group touch-none`}
+        className={`relative ${canvasClass} flex items-center justify-center cursor-pointer group touch-none transition-opacity duration-300 ${
+          isLoaded ? 'opacity-100' : 'opacity-0'
+        }`}
       >
         <div ref={mountRef} className="w-full h-full" />
 
-        {/* Tap indicator label if interactive */}
-        {interactive && !compact && (
-          <div className="absolute -bottom-2 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-semibold tracking-wider text-emerald-400 bg-black/60 px-2 py-0.5 rounded-full border border-emerald-500/30 pointer-events-none">
+        {interactive && (
+          <div className="absolute -bottom-1 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-semibold tracking-wider text-emerald-400 bg-black/80 px-2 py-0.5 rounded-full border border-emerald-500/30 pointer-events-none">
             {isWaving ? 'Waving! 👋' : 'Tap to wave'}
           </div>
         )}
       </div>
     </div>
   );
-};
+});
+
+Ake3DCompanion.displayName = 'Ake3DCompanion';

@@ -1,14 +1,65 @@
 <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="100" height="100" rx="22" fill="#0A0B0E"/>
   <defs>
+    <!-- Background Radial Ambient Glow -->
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#16E39B" stop-opacity="0.28" />
+      <stop offset="60%" stop-color="#16E39B" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#060C0A" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Glowing Line Gradient -->
     <linearGradient id="kinbodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stopColor="#41F8B5" />
-      <stop offset="40%" stopColor="#16E39B" />
-      <stop offset="85%" stopColor="#02B36B" />
-      <stop offset="100%" stopColor="#00824C" />
+      <stop offset="0%" stop-color="#60FFCA" />
+      <stop offset="40%" stop-color="#16E39B" />
+      <stop offset="80%" stop-color="#02B36B" />
+      <stop offset="100%" stop-color="#00824C" />
     </linearGradient>
+
+    <!-- Neon Glow Filter -->
+    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
   </defs>
-  <line x1="26" y1="20" x2="26" y2="80" stroke="url(#kinbodyGrad)" stroke-width="17" stroke-linecap="round" />
-  <line x1="36" y1="49" x2="74" y2="21" stroke="url(#kinbodyGrad)" stroke-width="17" stroke-linecap="round" />
-  <line x1="36" y1="51" x2="74" y2="79" stroke="url(#kinbodyGrad)" stroke-width="17" stroke-linecap="round" />
+
+  <!-- App Icon Dark Background Squircle -->
+  <rect width="100" height="100" rx="22" fill="#060C0A" />
+  <rect width="100" height="100" rx="22" fill="url(#bgGlow)" />
+  <rect width="98" height="98" x="1" y="1" rx="21" stroke="#16E39B" stroke-opacity="0.2" stroke-width="1.5" />
+
+  <!-- Bio-Topology Geometric K Mesh -->
+  <g filter="url(#neonGlow)">
+    <!-- Main K Skeleton Lines -->
+    <!-- Vertical Left Spine -->
+    <line x1="26" y1="22" x2="26" y2="78" stroke="url(#kinbodyGrad)" stroke-width="10" stroke-linecap="round" />
+    
+    <!-- Top Diagonal Arm -->
+    <line x1="26" y1="50" x2="74" y2="22" stroke="url(#kinbodyGrad)" stroke-width="10" stroke-linecap="round" />
+
+    <!-- Bottom Diagonal Leg -->
+    <line x1="26" y1="50" x2="74" y2="78" stroke="url(#kinbodyGrad)" stroke-width="10" stroke-linecap="round" />
+
+    <!-- Interconnecting Mesh Topology Links -->
+    <line x1="26" y1="22" x2="50" y2="36" stroke="#41F8B5" stroke-width="4" stroke-opacity="0.8" stroke-linecap="round" />
+    <line x1="50" y1="36" x2="74" y2="22" stroke="#41F8B5" stroke-width="4" stroke-opacity="0.8" stroke-linecap="round" />
+    <line x1="50" y1="36" x2="26" y2="50" stroke="#41F8B5" stroke-width="4" stroke-opacity="0.7" stroke-linecap="round" />
+
+    <line x1="26" y1="78" x2="50" y2="64" stroke="#41F8B5" stroke-width="4" stroke-opacity="0.8" stroke-linecap="round" />
+    <line x1="50" y1="64" x2="74" y2="78" stroke="#41F8B5" stroke-width="4" stroke-opacity="0.8" stroke-linecap="round" />
+    <line x1="50" y1="64" x2="26" y2="50" stroke="#41F8B5" stroke-width="4" stroke-opacity="0.7" stroke-linecap="round" />
+
+    <!-- Glowing Vertex Nodes (Dots) -->
+    <circle cx="26" cy="22" r="6" fill="#7CFFD8" />
+    <circle cx="26" cy="50" r="6.5" fill="#FFFFFF" />
+    <circle cx="26" cy="78" r="6" fill="#7CFFD8" />
+
+    <circle cx="50" cy="36" r="4.5" fill="#60FFCA" />
+    <circle cx="50" cy="64" r="4.5" fill="#60FFCA" />
+
+    <circle cx="74" cy="22" r="6" fill="#16E39B" />
+    <circle cx="74" cy="78" r="6" fill="#16E39B" />
+  </g>
 </svg>

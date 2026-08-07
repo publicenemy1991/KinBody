@@ -1,10 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, memo } from 'react';
 
 interface LivingParticleLogoProps {
   className?: string;
 }
 
-export const LivingParticleLogo: React.FC<LivingParticleLogoProps> = ({
+export const LivingParticleLogo: React.FC<LivingParticleLogoProps> = memo(({
   className = 'w-64 h-64',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -53,9 +53,13 @@ export const LivingParticleLogo: React.FC<LivingParticleLogoProps> = ({
     }
 
     let time = 0;
+    let lastTime = performance.now();
 
-    const render = () => {
-      time += 0.015;
+    const render = (now: number) => {
+      const dt = Math.min((now - lastTime) / 1000, 0.033);
+      lastTime = now;
+      time += dt * 1.2;
+
       ctx.clearRect(0, 0, width, height);
 
       // Radial background glow
@@ -85,9 +89,10 @@ export const LivingParticleLogo: React.FC<LivingParticleLogoProps> = ({
         p.targetX = centerX + Math.cos(dynamicAngle) * pulseRadius;
         p.targetY = centerY + Math.sin(dynamicAngle) * pulseRadius;
 
-        // Smooth spring ease toward target
-        p.x += (p.targetX - p.x) * 0.08;
-        p.y += (p.targetY - p.y) * 0.08;
+        // Delta-adjusted smooth spring ease toward target
+        const easeFactor = 1 - Math.pow(1 - 0.12, dt * 60);
+        p.x += (p.targetX - p.x) * easeFactor;
+        p.y += (p.targetY - p.y) * easeFactor;
 
         // Draw particle dot
         ctx.beginPath();
@@ -104,7 +109,7 @@ export const LivingParticleLogo: React.FC<LivingParticleLogoProps> = ({
       animationFrameId = requestAnimationFrame(render);
     };
 
-    render();
+    animationFrameId = requestAnimationFrame(render);
 
     return () => {
       cancelAnimationFrame(animationFrameId);
@@ -112,11 +117,13 @@ export const LivingParticleLogo: React.FC<LivingParticleLogoProps> = ({
   }, []);
 
   return (
-    <div className={`relative flex items-center justify-center ${className}`}>
+    <div className={`relative flex items-center justify-center gpu-accelerated ${className}`}>
       <canvas
         ref={canvasRef}
-        className="w-full h-full max-w-[300px] max-h-[300px]"
+        className="w-full h-full max-w-[300px] max-h-[300px] pointer-events-none"
       />
     </div>
   );
-};
+});
+
+LivingParticleLogo.displayName = 'LivingParticleLogo';

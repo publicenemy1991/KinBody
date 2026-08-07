@@ -25,7 +25,7 @@ export const KinbodyBioTopology: React.FC<KinbodyBioTopologyProps> = React.memo(
       <motion.svg
         viewBox="0 0 400 850"
         preserveAspectRatio="xMidYMid slice"
-        className="w-full h-full text-[#00E8A6] opacity-[0.85]"
+        className="w-full h-full text-[#00E8A6] opacity-[0.85] gpu-accelerated"
         animate={
           isReducedMotion
             ? { scale: 1, y: 0 }

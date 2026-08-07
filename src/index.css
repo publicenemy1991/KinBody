@@ -42,12 +42,28 @@
   }
 }
 
+/* Hardware GPU Acceleration & 100+ FPS High Refresh Rate Optimization */
+.gpu-accelerated {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform, opacity;
+}
+
+/* Optimize scroll performance with contain paint */
+.smooth-scroll-container {
+  contain: layout style paint;
+  will-change: scroll-position;
+  -webkit-overflow-scrolling: touch;
+}
+
 body {
   background-color: #050706;
   color: #ffffff;
   transition: background-color 0.3s ease, color 0.3s ease;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 .app-screen {
