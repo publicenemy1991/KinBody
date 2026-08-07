@@ -402,7 +402,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-black text-white font-sans">
         <OnboardingWizard
-          key={`onboarding_wizard_${userProfile.onboardingStep || 0}_${userProfile.onboardingCompleted ? '1' : '0'}`}
+          key="onboarding_wizard_active"
           initialProfile={userProfile}
           onSaveStepProfile={handleSaveStepProfile}
           onCompleteOnboarding={handleCompleteOnboarding}
@@ -426,14 +426,14 @@ export default function App() {
 
         {/* Tab Views */}
         <main className="flex-1 relative overflow-hidden">
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="popLayout" initial={false}>
             {activeTab === 'log' && (
               <motion.div
                 key="tab-log"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
               >
                 <FoodHomeView
                   userProfile={userProfile}
@@ -454,10 +454,10 @@ export default function App() {
             {activeTab === 'activity' && (
               <motion.div
                 key="tab-activity"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
               >
                 <ActivityView
                   userProfile={userProfile}
@@ -474,10 +474,10 @@ export default function App() {
             {activeTab === 'body' && (
               <motion.div
                 key="tab-body"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
               >
                 <BodyView
                   currentWeightKg={userProfile.weightKg}
@@ -496,10 +496,10 @@ export default function App() {
             {activeTab === 'progress' && (
               <motion.div
                 key="tab-progress"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
               >
                 <ProgressView
                   userProfile={userProfile}
@@ -513,10 +513,10 @@ export default function App() {
             {activeTab === 'profile' && (
               <motion.div
                 key="tab-profile"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
               >
                 <ProfileView
                   userProfile={userProfile}

@@ -102,33 +102,36 @@ export const LogoCompanionMorph: React.FC<LogoCompanionMorphProps> = ({
           }}
         />
 
-        {/* 2. Diagonal Bar (Fades/Merges into main body) */}
-        <motion.rect
-          x="42"
-          y="20"
-          width="18"
-          height="50"
-          rx="9"
-          transform="rotate(-42 42 20)"
-          fill="url(#morphOrganicGrad)"
+        {/* 2. Upper Diagonal Pill Arm (Fades & merges inward) */}
+        <motion.line
+          x1="36"
+          y1="49"
+          x2="74"
+          y2="21"
+          stroke="url(#morphOrganicGrad)"
+          strokeWidth="17"
+          strokeLinecap="round"
           animate={{
             opacity: stage === 'soften' ? 0.8 : stage === 'liquify' ? 0.2 : 0,
-            scale: stage === 'soften' ? 0.9 : 0.6,
+            x2: stage === 'soften' ? 68 : stage === 'liquify' ? 52 : 36,
+            y2: stage === 'soften' ? 28 : stage === 'liquify' ? 40 : 49,
           }}
           transition={{ duration: 0.35, ease: 'easeInOut' }}
         />
 
-        {/* 3. Dot Circle (Moves inward to merge into lower body) */}
-        <motion.circle
-          cx={stage === 'soften' ? 76 : stage === 'liquify' ? 68 : 60}
-          cy={stage === 'soften' ? 76 : stage === 'liquify' ? 70 : 60}
-          r={stage === 'soften' ? 11 : stage === 'liquify' ? 6 : 0}
-          fill="url(#morphOrganicGrad)"
+        {/* 3. Lower Diagonal Pill Leg (Fades & merges inward) */}
+        <motion.line
+          x1="36"
+          y1="51"
+          x2="74"
+          y2="79"
+          stroke="url(#morphOrganicGrad)"
+          strokeWidth="17"
+          strokeLinecap="round"
           animate={{
-            cx: stage === 'soften' ? 76 : stage === 'liquify' ? 68 : 60,
-            cy: stage === 'soften' ? 76 : stage === 'liquify' ? 70 : 60,
-            r: stage === 'soften' ? 11 : stage === 'liquify' ? 6 : 0,
-            opacity: stage === 'character' ? 0 : 1,
+            opacity: stage === 'soften' ? 0.8 : stage === 'liquify' ? 0.2 : 0,
+            x2: stage === 'soften' ? 68 : stage === 'liquify' ? 52 : 36,
+            y2: stage === 'soften' ? 72 : stage === 'liquify' ? 60 : 51,
           }}
           transition={{ duration: 0.35, ease: 'easeInOut' }}
         />

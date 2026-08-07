@@ -50,6 +50,8 @@ export interface NutritionInfo {
   proteinG: number;
   carbsG: number;
   fatG: number;
+  saturatedFatG?: number;
+  sugarG?: number;
   fibreG?: number;
   sodiumMg?: number;
   epaMg?: number;

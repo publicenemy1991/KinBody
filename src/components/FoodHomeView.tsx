@@ -20,6 +20,13 @@ import {
   Utensils,
   Mic,
   Camera,
+  PieChart,
+  Activity,
+  Dumbbell,
+  Wheat,
+  Droplet,
+  ShieldCheck,
+  ChevronRight as ChevronRightIcon,
 } from 'lucide-react';
 import {
   LoggedFoodEntry,
@@ -60,6 +67,13 @@ export const FoodHomeView: React.FC<FoodHomeViewProps> = ({
   onSelectEntry,
   onUpdateEntryMealType,
 }) => {
+  // Navigation Tabs: 'log' vs 'nutrition'
+  const [mainSubTab, setMainSubTab] = useState<'log' | 'nutrition'>('log');
+  // Nutrition Sub-Tabs: 'calories' | 'nutrients' | 'macros'
+  const [nutritionTab, setNutritionTab] = useState<'calories' | 'nutrients' | 'macros'>('calories');
+  // Selected Nutrient for Nutrients Tab Sources View
+  const [activeNutrientKey, setActiveNutrientKey] = useState<string | null>(null);
+
   const [draggedEntryId, setDraggedEntryId] = useState<string | null>(null);
   const [dragOverCategory, setDragOverCategory] = useState<MealType | null>(null);
   const [activeMoveEntryId, setActiveMoveEntryId] = useState<string | null>(null);
@@ -70,12 +84,10 @@ export const FoodHomeView: React.FC<FoodHomeViewProps> = ({
   const [isSwiping, setIsSwiping] = useState<boolean>(false);
   const [swipeDirection, setSwipeDirection] = useState<number>(1); // 1 = forward (next day), -1 = backward (prev day)
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
-  const isMouseDownRef = useRef<boolean>(false);
   const hasTriggeredThresholdHapticRef = useRef<boolean>(false);
 
   const dateInfo = formatDateDisplay(selectedDate);
   const todayStr = getTodayString();
-  const isToday = selectedDate === todayStr;
 
   const prevDateStr = offsetDateString(selectedDate, -1);
   const nextDateStr = offsetDateString(selectedDate, 1);
@@ -94,9 +106,8 @@ export const FoodHomeView: React.FC<FoodHomeViewProps> = ({
     onDateChange?.(next);
   };
 
-  // Drag Threshold Configuration (40px distance or quick flick velocity)
+  // Drag Threshold Configuration
   const SWIPE_THRESHOLD_PX = 40;
-  const FLICK_VELOCITY_PX_MS = 0.18;
 
   // Touch & Mouse Edge Gesture Navigation Handlers
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -135,62 +146,16 @@ export const FoodHomeView: React.FC<FoodHomeViewProps> = ({
   };
 
   const handleTouchEnd = () => {
-    if (isSwiping && touchStartRef.current) {
-      const deltaX = swipeOffset;
-      const duration = Math.max(1, Date.now() - touchStartRef.current.time);
-      const velocity = Math.abs(deltaX) / duration;
-
-      const isFlick = velocity >= FLICK_VELOCITY_PX_MS && Math.abs(deltaX) > 15;
-      const isDistance = Math.abs(deltaX) >= SWIPE_THRESHOLD_PX;
-
-      if (isFlick || isDistance) {
-        if (typeof window !== 'undefined' && navigator.vibrate) {
-          try {
-            navigator.vibrate([10, 15]);
-          } catch (e) {}
-        }
-
-        if (deltaX > 0) {
-          handlePrevDay();
-        } else {
-          handleNextDay();
-        }
+    if (isSwiping) {
+      if (swipeOffset <= -SWIPE_THRESHOLD_PX) {
+        handleNextDay();
+      } else if (swipeOffset >= SWIPE_THRESHOLD_PX) {
+        handlePrevDay();
       }
     }
-    touchStartRef.current = null;
-    isMouseDownRef.current = false;
     setIsSwiping(false);
     setSwipeOffset(0);
-    hasTriggeredThresholdHapticRef.current = false;
-  };
-
-  // Mouse drag support for desktop testing
-  const handleMouseDown = (e: React.MouseEvent) => {
-    isMouseDownRef.current = true;
-    touchStartRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
-    hasTriggeredThresholdHapticRef.current = false;
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isMouseDownRef.current || !touchStartRef.current) return;
-    const deltaX = e.clientX - touchStartRef.current.x;
-    const deltaY = e.clientY - touchStartRef.current.y;
-
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 6) {
-      setIsSwiping(true);
-      setSwipeOffset(deltaX);
-
-      if (Math.abs(deltaX) >= SWIPE_THRESHOLD_PX && !hasTriggeredThresholdHapticRef.current) {
-        hasTriggeredThresholdHapticRef.current = true;
-        if (typeof window !== 'undefined' && navigator.vibrate) {
-          try {
-            navigator.vibrate(8);
-          } catch (e) {}
-        }
-      } else if (Math.abs(deltaX) < SWIPE_THRESHOLD_PX * 0.7) {
-        hasTriggeredThresholdHapticRef.current = false;
-      }
-    }
+    touchStartRef.current = null;
   };
 
   const handleCustomDateSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,7 +170,7 @@ export const FoodHomeView: React.FC<FoodHomeViewProps> = ({
     return entryDate === selectedDate;
   });
 
-  // Calculate consumed macros for selectedDate
+  // Calculate consumed macros & nutrients for selectedDate (100% Real Data)
   const totalCalories = dayFoodEntries.reduce(
     (sum, e) => sum + (e.foodItem.nutritionPerServing.calories || 0) * e.servings,
     0
@@ -214,15 +179,139 @@ export const FoodHomeView: React.FC<FoodHomeViewProps> = ({
     (sum, e) => sum + (e.foodItem.nutritionPerServing.proteinG || 0) * e.servings,
     0
   );
+  const totalFat = dayFoodEntries.reduce(
+    (sum, e) => sum + (e.foodItem.nutritionPerServing.fatG || 0) * e.servings,
+    0
+  );
+  const totalCarbs = dayFoodEntries.reduce(
+    (sum, e) => sum + (e.foodItem.nutritionPerServing.carbsG || 0) * e.servings,
+    0
+  );
+  const totalFibre = dayFoodEntries.reduce(
+    (sum, e) => sum + (e.foodItem.nutritionPerServing.fibreG || 0) * e.servings,
+    0
+  );
+  const totalSaturatedFat = dayFoodEntries.reduce(
+    (sum, e) => sum + (e.foodItem.nutritionPerServing.saturatedFatG || 0) * e.servings,
+    0
+  );
+  const totalSugar = dayFoodEntries.reduce(
+    (sum, e) => sum + (e.foodItem.nutritionPerServing.sugarG || 0) * e.servings,
+    0
+  );
+  const totalSodium = dayFoodEntries.reduce(
+    (sum, e) => sum + (e.foodItem.nutritionPerServing.sodiumMg || 0) * e.servings,
+    0
+  );
+  const totalVitD = dayFoodEntries.reduce(
+    (sum, e) => sum + (e.foodItem.nutritionPerServing.vitDMg || 0) * e.servings,
+    0
+  );
+  const totalMagnesium = dayFoodEntries.reduce(
+    (sum, e) => sum + (e.foodItem.nutritionPerServing.magnesiumMg || 0) * e.servings,
+    0
+  );
+  const totalIron = dayFoodEntries.reduce(
+    (sum, e) => sum + (e.foodItem.nutritionPerServing.ironMg || 0) * e.servings,
+    0
+  );
+  const totalCalcium = dayFoodEntries.reduce(
+    (sum, e) => sum + (e.foodItem.nutritionPerServing.calciumMg || 0) * e.servings,
+    0
+  );
+  const totalPotassium = dayFoodEntries.reduce(
+    (sum, e) => sum + (e.foodItem.nutritionPerServing.potassiumMg || 0) * e.servings,
+    0
+  );
+  const totalOmega3 = dayFoodEntries.reduce(
+    (sum, e) =>
+      sum +
+      ((e.foodItem.nutritionPerServing.epaMg || 0) +
+        (e.foodItem.nutritionPerServing.dhaMg || 0)) *
+        e.servings,
+    0
+  );
 
-  const calTarget = userProfile.calorieTarget || 2350;
-  const proTarget = userProfile.proteinTargetG || 180;
+  const calTarget = userProfile.calorieTarget || 2259;
+  const proTarget = userProfile.proteinTargetG || 160;
+  const carbsTarget = userProfile.carbsTargetG || 240;
+  const fatTarget = userProfile.fatTargetG || 70;
+  const fibreTarget = 30;
 
   const calRemaining = Math.max(0, calTarget - Math.round(totalCalories));
   const proRemaining = Math.max(0, Math.round(proTarget - totalProtein));
+  const carbsRemaining = Math.max(0, Math.round(carbsTarget - totalCarbs));
+  const fatRemaining = Math.max(0, Math.round(fatTarget - totalFat));
+  const fibreRemaining = Math.max(0, Math.round(fibreTarget - totalFibre));
 
   const proPct = Math.min(100, Math.round((totalProtein / proTarget) * 100));
   const calPct = Math.min(100, Math.round((totalCalories / calTarget) * 100));
+  const carbsPct = Math.min(100, Math.round((totalCarbs / carbsTarget) * 100));
+  const fatPct = Math.min(100, Math.round((totalFat / fatTarget) * 100));
+  const fibrePct = Math.min(100, Math.round((totalFibre / fibreTarget) * 100));
+
+  // Calories by meal calculations
+  const breakfastEntries = dayFoodEntries.filter((e) => e.mealType === 'breakfast');
+  const lunchEntries = dayFoodEntries.filter((e) => e.mealType === 'lunch');
+  const dinnerEntries = dayFoodEntries.filter((e) => e.mealType === 'dinner');
+  const snackEntries = dayFoodEntries.filter(
+    (e) => e.mealType === 'snacks' || e.mealType === 'pre_workout' || e.mealType === 'post_workout'
+  );
+
+  const calsBreakfast = breakfastEntries.reduce(
+    (s, e) => s + (e.foodItem.nutritionPerServing.calories || 0) * e.servings,
+    0
+  );
+  const calsLunch = lunchEntries.reduce(
+    (s, e) => s + (e.foodItem.nutritionPerServing.calories || 0) * e.servings,
+    0
+  );
+  const calsDinner = dinnerEntries.reduce(
+    (s, e) => s + (e.foodItem.nutritionPerServing.calories || 0) * e.servings,
+    0
+  );
+  const calsSnack = snackEntries.reduce(
+    (s, e) => s + (e.foodItem.nutritionPerServing.calories || 0) * e.servings,
+    0
+  );
+
+  const bfastCal = Math.round(calsBreakfast);
+  const lunchCal = Math.round(calsLunch);
+  const dinnerCal = Math.round(calsDinner);
+  const snackCal = Math.round(calsSnack);
+  const displayTotalCals = Math.round(totalCalories);
+  const displayActivityCals = activityCaloriesToday || 0;
+  const displayNetCals = displayTotalCals - displayActivityCals;
+
+  const totalCalBreakdown = bfastCal + lunchCal + dinnerCal + snackCal;
+  const bfastPct = totalCalBreakdown > 0 ? Math.round((bfastCal / totalCalBreakdown) * 100) : 0;
+  const lunchPct = totalCalBreakdown > 0 ? Math.round((lunchCal / totalCalBreakdown) * 100) : 0;
+  const dinnerPct = totalCalBreakdown > 0 ? Math.round((dinnerCal / totalCalBreakdown) * 100) : 0;
+  const snackPct = totalCalBreakdown > 0 ? Math.max(0, 100 - bfastPct - lunchPct - dinnerPct) : 0;
+
+  // Macro distribution for Macros Tab (100% Real Data)
+  const proteinCals = totalProtein * 4;
+  const fatCals = totalFat * 9;
+  const carbsCals = totalCarbs * 4;
+  const totalMacroCals = proteinCals + fatCals + carbsCals;
+
+  const macroCarbsPct = totalMacroCals > 0 ? Math.round((carbsCals / totalMacroCals) * 100) : 0;
+  const macroFatPct = totalMacroCals > 0 ? Math.round((fatCals / totalMacroCals) * 100) : 0;
+  const macroProteinPct = totalMacroCals > 0 ? Math.max(0, 100 - macroCarbsPct - macroFatPct) : 0;
+
+  // Ranked foods highest in calories for Calories Tab
+  const foodsHighestInCalories = [...dayFoodEntries].sort((a, b) => {
+    const calsA = (a.foodItem.nutritionPerServing.calories || 0) * a.servings;
+    const calsB = (b.foodItem.nutritionPerServing.calories || 0) * b.servings;
+    return calsB - calsA;
+  });
+
+  // Ranked foods highest in protein for Nutrients/Macros Tab
+  const foodsHighestInProtein = [...dayFoodEntries].sort((a, b) => {
+    const proA = (a.foodItem.nutritionPerServing.proteinG || 0) * a.servings;
+    const proB = (b.foodItem.nutritionPerServing.proteinG || 0) * b.servings;
+    return proB - proA;
+  });
 
   const mealCategories: Array<{
     type: MealType;
@@ -238,41 +327,109 @@ export const FoodHomeView: React.FC<FoodHomeViewProps> = ({
     { type: 'snacks', label: 'Snacks', icon: Coffee, color: 'text-emerald-400', bgColor: 'bg-emerald-500/10 border-emerald-500/20', defaultTime: '2:30 PM' },
   ];
 
-  // Helper to compute day page metrics for any target date
-  const getDayPageData = (targetDate: string) => {
-    const dInfo = formatDateDisplay(targetDate);
-    const entries = loggedEntries.filter((e) => {
-      const entryDate = e.date || getLocalDateString(new Date(e.loggedAt));
-      return entryDate === targetDate;
-    });
-
-    const cals = entries.reduce(
-      (sum, e) => sum + (e.foodItem.nutritionPerServing.calories || 0) * e.servings,
-      0
-    );
-    const pro = entries.reduce(
-      (sum, e) => sum + (e.foodItem.nutritionPerServing.proteinG || 0) * e.servings,
-      0
-    );
-
-    const calRem = Math.max(0, calTarget - Math.round(cals));
-    const proRem = Math.max(0, Math.round(proTarget - pro));
-
-    return { dInfo, entries, cals, pro, calRem, proRem };
-  };
-
   return (
     <div
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleTouchEnd}
-      onMouseLeave={handleTouchEnd}
-      className="pb-28 px-5 pt-2 relative select-none min-h-[85vh] overflow-x-hidden cursor-grab active:cursor-grabbing"
+      className="pb-28 px-4 sm:px-5 pt-2 relative select-none min-h-[85vh] overflow-x-hidden"
     >
-      {/* Date Banner Header */}
+      {/* 1. TOP PRIMARY TOGGLE: LOG vs NUTRITION */}
+      <div className="flex items-center justify-center space-x-10 border-b border-white/10 pb-2.5 mb-4">
+        <button
+          onClick={() => setMainSubTab('log')}
+          className={`relative pb-2 text-base font-extrabold transition-all ${
+            mainSubTab === 'log' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          Log
+          {mainSubTab === 'log' && (
+            <motion.div
+              layoutId="primaryTabIndicator"
+              className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#16E39B] rounded-full shadow-[0_0_8px_#16E39B]"
+            />
+          )}
+        </button>
+
+        <button
+          onClick={() => setMainSubTab('nutrition')}
+          className={`relative pb-2 text-base font-extrabold transition-all ${
+            mainSubTab === 'nutrition' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          Nutrition
+          {mainSubTab === 'nutrition' && (
+            <motion.div
+              layoutId="primaryTabIndicator"
+              className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#16E39B] rounded-full shadow-[0_0_8px_#16E39B]"
+            />
+          )}
+        </button>
+      </div>
+
+      {/* 2. NUTRITION SUB-HEADER & SUB-TABS (When Nutrition Mode is Active) */}
+      {mainSubTab === 'nutrition' && (
+        <div className="space-y-3 mb-4">
+          <div className="text-center">
+            <h1 className="text-xl font-black text-white tracking-tight">Nutrition</h1>
+          </div>
+
+          <div className="flex items-center justify-center space-x-8 border-b border-white/10 pb-2">
+            <button
+              onClick={() => {
+                setNutritionTab('calories');
+                setActiveNutrientKey(null);
+              }}
+              className={`relative pb-1.5 text-xs font-black uppercase tracking-wider transition-colors ${
+                nutritionTab === 'calories' ? 'text-[#16E39B]' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              Calories
+              {nutritionTab === 'calories' && (
+                <motion.div
+                  layoutId="nutritionSubTabIndicator"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#16E39B] rounded-full"
+                />
+              )}
+            </button>
+
+            <button
+              onClick={() => setNutritionTab('nutrients')}
+              className={`relative pb-1.5 text-xs font-black uppercase tracking-wider transition-colors ${
+                nutritionTab === 'nutrients' ? 'text-[#16E39B]' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              Nutrients
+              {nutritionTab === 'nutrients' && (
+                <motion.div
+                  layoutId="nutritionSubTabIndicator"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#16E39B] rounded-full"
+                />
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                setNutritionTab('macros');
+                setActiveNutrientKey(null);
+              }}
+              className={`relative pb-1.5 text-xs font-black uppercase tracking-wider transition-colors ${
+                nutritionTab === 'macros' ? 'text-[#16E39B]' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              Macros
+              {nutritionTab === 'macros' && (
+                <motion.div
+                  layoutId="nutritionSubTabIndicator"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#16E39B] rounded-full"
+                />
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 3. DATE BANNER HEADER */}
       <div className="bg-[#121212] border border-white/10 rounded-2xl p-3 shadow-md flex items-center justify-between relative mb-5 z-20">
         <button
           onClick={handlePrevDay}
@@ -287,7 +444,7 @@ export const FoodHomeView: React.FC<FoodHomeViewProps> = ({
             <h2 className="text-base font-black text-white tracking-tight">
               {dateInfo.title}
             </h2>
-            <label className="cursor-pointer p-1 rounded-lg hover:bg-white/10 text-emerald-400 transition-colors">
+            <label className="cursor-pointer p-1 rounded-lg hover:bg-white/10 text-[#16E39B] transition-colors">
               <CalendarIcon className="w-4 h-4" />
               <input
                 type="date"
@@ -302,7 +459,7 @@ export const FoodHomeView: React.FC<FoodHomeViewProps> = ({
             <span
               className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
                 dateInfo.isToday
-                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                  ? 'bg-[#16E39B]/20 border-[#16E39B]/40 text-[#16E39B]'
                   : 'bg-zinc-800 border-white/10 text-zinc-400'
               }`}
             >
@@ -323,7 +480,7 @@ export const FoodHomeView: React.FC<FoodHomeViewProps> = ({
         </button>
       </div>
 
-      {/* Edge Gesture Navigation Overlay */}
+      {/* Swipe Gesture Edge Overlay */}
       <AnimatePresence>
         {isSwiping && Math.abs(swipeOffset) > 6 && (
           <motion.div
@@ -361,497 +518,741 @@ export const FoodHomeView: React.FC<FoodHomeViewProps> = ({
                   </>
                 )}
               </div>
-
-              <p className="text-[10px] font-bold text-emerald-200 uppercase tracking-wider">
-                {Math.abs(swipeOffset) >= SWIPE_THRESHOLD_PX ? '✓ Release to switch' : 'Release or flick'}
-              </p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Main Day Page Content */}
-      <div className="space-y-5 relative z-10">
-        <AnimatePresence mode="wait" initial={false}>
+      {/* 4. CONTENT SECTIONS ACCORDING TO ACTIVE SUB-TAB */}
+      <AnimatePresence mode="wait" initial={false}>
+        {mainSubTab === 'log' ? (
+          /* ==================== VIEW 1: LOG TAB ==================== */
           <motion.div
-            key={selectedDate}
-            initial={{
-              opacity: 0,
-              x: swipeDirection > 0 ? 40 : -40,
-            }}
-            animate={{
-              opacity: 1,
-              x: 0,
-            }}
-            exit={{
-              opacity: 0,
-              x: swipeDirection > 0 ? -40 : 40,
-            }}
-            transition={{
-              type: 'spring',
-              stiffness: 450,
-              damping: 32,
-              mass: 0.8,
-            }}
-            className="space-y-5"
+            key={`log_${selectedDate}`}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.15 }}
+            className="space-y-4"
           >
-
-      {/* Calories & Protein Summaries Cards */}
-      <div className="grid grid-cols-2 gap-3.5">
-        {/* Calories Card */}
-        <motion.div
-          onClick={() => onOpenNutrientDetail('calories')}
-          whileHover={{ scale: 1.015, y: -1 }}
-          whileTap={{ scale: 0.98 }}
-          className="bg-[#121212] border border-white/10 rounded-3xl p-4 hover:border-emerald-500/50 transition-colors cursor-pointer shadow-lg relative overflow-hidden flex flex-col justify-between aspect-[1.15/1]"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-1.5">
-              <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                <Target className="w-3.5 h-3.5" />
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
-                Calories
-              </span>
-            </div>
-            <span className="text-[10px] font-black text-zinc-300 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
-              {calPct}%
-            </span>
-          </div>
-
-          <div className="flex items-baseline justify-between my-2">
-            <div>
-              <span className="text-2xl font-black text-white tracking-tight">
-                {Math.round(totalCalories).toLocaleString()}
-              </span>
-              <span className="text-xs text-zinc-400 font-bold ml-1">kcal</span>
-              <p className="text-[10px] text-zinc-400">of {calTarget} kcal</p>
-            </div>
-
-            {/* Circular Gauge */}
-            <div className="relative w-11 h-11 flex items-center justify-center shrink-0">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                <circle cx="18" cy="18" r="14" className="stroke-zinc-800" strokeWidth="3.5" fill="none" />
-                <motion.circle
-                  cx="18"
-                  cy="18"
-                  r="14"
-                  className="stroke-emerald-400"
-                  strokeWidth="3.5"
-                  strokeDasharray="88"
-                  initial={{ strokeDashoffset: 88 }}
-                  animate={{ strokeDashoffset: 88 - (calPct * 88) / 100 }}
-                  transition={{ duration: 0.8, ease: 'easeOut' }}
-                  strokeLinecap="round"
-                  fill="none"
-                />
-              </svg>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[10px]">
-            <span className="text-zinc-400 font-medium">Remaining</span>
-            <span className="text-emerald-400 font-bold">{calRemaining} kcal</span>
-          </div>
-        </motion.div>
-
-        {/* Protein Card */}
-        <motion.div
-          onClick={() => onOpenNutrientDetail('protein')}
-          whileHover={{ scale: 1.015, y: -1 }}
-          whileTap={{ scale: 0.98 }}
-          className="bg-[#121212] border border-white/10 rounded-3xl p-4 hover:border-emerald-500/50 transition-colors cursor-pointer shadow-lg relative overflow-hidden flex flex-col justify-between aspect-[1.15/1]"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-1.5">
-              <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                <Flame className="w-3.5 h-3.5 fill-emerald-400/20" />
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
-                Protein
-              </span>
-            </div>
-            <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-              {proPct}%
-            </span>
-          </div>
-
-          <div className="flex items-baseline justify-between my-2">
-            <div>
-              <span className="text-2xl font-black text-white tracking-tight">
-                {Math.round(totalProtein)}
-              </span>
-              <span className="text-xs text-emerald-400 font-bold ml-1">g</span>
-              <p className="text-[10px] text-zinc-400">of {proTarget} g</p>
-            </div>
-
-            {/* Circular Gauge */}
-            <div className="relative w-11 h-11 flex items-center justify-center shrink-0">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                <circle cx="18" cy="18" r="14" className="stroke-zinc-800" strokeWidth="3.5" fill="none" />
-                <motion.circle
-                  cx="18"
-                  cy="18"
-                  r="14"
-                  className="stroke-emerald-400"
-                  strokeWidth="3.5"
-                  strokeDasharray="88"
-                  initial={{ strokeDashoffset: 88 }}
-                  animate={{ strokeDashoffset: 88 - (proPct * 88) / 100 }}
-                  transition={{ duration: 0.8, ease: 'easeOut' }}
-                  strokeLinecap="round"
-                  fill="none"
-                />
-              </svg>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[10px]">
-            <span className="text-zinc-400 font-medium">Remaining</span>
-            <span className="text-emerald-400 font-bold">{proRemaining} g</span>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Daily Energy Summary (Food - Activity) */}
-      <div className="bg-[#121212] border border-white/10 rounded-2xl p-4 shadow-md space-y-2.5">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-extrabold text-white tracking-tight">
-            Daily Energy Summary
-          </span>
-          <span className="text-[10px] text-zinc-400 font-medium">
-            Food logged minus activity
-          </span>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="bg-[#0A0A0A] p-2.5 rounded-xl border border-white/5">
-            <span className="text-[10px] font-semibold text-zinc-400 block mb-0.5">Food</span>
-            <span className="text-sm font-black text-white">
-              {Math.round(totalCalories).toLocaleString()}
-            </span>
-            <span className="text-[9px] text-zinc-500 block font-medium">kcal</span>
-          </div>
-
-          <div className="bg-[#0A0A0A] p-2.5 rounded-xl border border-white/5">
-            <span className="text-[10px] font-semibold text-zinc-400 block mb-0.5">Activity</span>
-            <span className="text-sm font-black text-amber-400">
-              {activityCaloriesToday.toLocaleString()}
-            </span>
-            <span className="text-[9px] text-zinc-500 block font-medium">kcal</span>
-          </div>
-
-          <div className="bg-[#0A0A0A] p-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
-            <span className="text-[10px] font-semibold text-emerald-400 block mb-0.5">Difference</span>
-            <span className="text-sm font-black text-white">
-              {Math.round(totalCalories - activityCaloriesToday).toLocaleString()}
-            </span>
-            <span className="text-[9px] text-zinc-500 block font-medium">kcal</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Prominent Log Food Main Action Button with Bio-Topography */}
-      <motion.div
-        onClick={onOpenLogModal}
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.98 }}
-        className="relative w-full overflow-hidden rounded-2xl border border-[#16E39B]/35 bg-gradient-to-r from-[#03291B] via-[#021F14] to-[#01140C] p-4.5 transition-all shadow-xl shadow-[#16E39B]/10 cursor-pointer flex items-center justify-between"
-      >
-        {/* Organic Bio-Topo Contour Lines overlay inside CTA Card */}
-        <div className="absolute inset-y-0 right-0 w-3/5 pointer-events-none opacity-40 overflow-hidden">
-          <svg
-            viewBox="0 0 240 100"
-            preserveAspectRatio="none"
-            className="w-full h-full text-[#16E39B]"
-          >
-            <g stroke="currentColor" strokeWidth="1.2" fill="none" opacity="0.8">
-              <path d="M 60 -10 C 100 20, 150 40, 250 30" />
-              <path d="M 40 10 C 85 40, 140 60, 250 50" />
-              <path d="M 20 30 C 70 60, 130 80, 250 70" />
-              <path d="M 0 50 C 55 80, 120 100, 250 90" />
-              <path d="M -20 70 C 40 100, 110 120, 250 110" />
-              {/* Concentric ridge loops */}
-              <path d="M 180 20 C 200 20, 220 35, 220 55 C 220 75, 200 90, 180 90 C 160 90, 140 75, 140 55 C 140 35, 160 20, 180 20 Z" opacity="0.6" />
-              <path d="M 180 32 C 195 32, 208 42, 208 55 C 208 68, 195 78, 180 78 C 165 78, 152 68, 152 55 C 152 42, 165 32, 180 32 Z" opacity="0.7" />
-              <path d="M 180 44 C 188 44, 195 49, 195 55 C 195 61, 188 66, 180 66 C 172 66, 165 61, 165 55 C 165 49, 172 44, 180 44 Z" opacity="0.8" />
-            </g>
-          </svg>
-        </div>
-
-        <div className="relative z-10 flex items-center space-x-3.5">
-          <div className="w-11 h-11 rounded-xl bg-[#083827] border border-[#16E39B]/40 flex items-center justify-center shrink-0 text-[#16E39B] shadow-inner">
-            <Plus className="w-6 h-6 stroke-[2.8]" />
-          </div>
-          <div>
-            <span className="text-base font-extrabold block text-white tracking-tight">
-              Log Food
-            </span>
-            <span className="text-[11.5px] text-[#A2F2D5] font-medium">
-              Add meal, scan, or describe
-            </span>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Meals Grouped Section */}
-      <div className="space-y-3 pt-1">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <h2 className="text-base font-bold text-white tracking-tight">
-              Meals
-            </h2>
-            <span className="text-xs font-bold text-zinc-400 bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
-              {dayFoodEntries.length} logged
-            </span>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          {mealCategories.map((cat) => {
-            const Icon = cat.icon;
-            const catEntries = dayFoodEntries.filter((e) => e.mealType === cat.type);
-            const catCal = catEntries.reduce(
-              (sum, e) => sum + (e.foodItem.nutritionPerServing.calories || 0) * e.servings,
-              0
-            );
-            const isDropTarget = dragOverCategory === cat.type;
-
-            return (
-              <div
-                key={cat.type}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                  if (dragOverCategory !== cat.type) {
-                    setDragOverCategory(cat.type);
-                  }
+            {/* Macro Summary Grid - Calories & Protein only */}
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* Calories Card */}
+              <motion.div
+                onClick={() => {
+                  setMainSubTab('nutrition');
+                  setNutritionTab('calories');
                 }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                    setDragOverCategory(null);
-                  }
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const entryId = e.dataTransfer.getData('text/plain') || draggedEntryId;
-                  if (entryId && onUpdateEntryMealType) {
-                    onUpdateEntryMealType(entryId, cat.type);
-                  }
-                  setDraggedEntryId(null);
-                  setDragOverCategory(null);
-                }}
-                className={`bg-[#121212] border transition-all duration-200 rounded-2xl p-4 space-y-3 shadow-sm ${
-                  isDropTarget
-                    ? 'border-2 border-dashed border-emerald-400 bg-emerald-500/10 shadow-lg shadow-emerald-500/10 scale-[1.01]'
-                    : 'border-white/10'
-                }`}
+                whileTap={{ scale: 0.98 }}
+                className="bg-[#121212] border border-white/10 rounded-2xl p-3.5 hover:border-[#16E39B]/50 transition-colors cursor-pointer shadow-md space-y-2"
               >
-                <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-8 h-8 rounded-xl ${cat.bgColor} flex items-center justify-center ${cat.color} shrink-0`}>
-                      <Icon className="w-4 h-4" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5">
+                    <div className="w-6 h-6 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400">
+                      <Flame className="w-3.5 h-3.5 fill-orange-400/20" />
                     </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white">
-                        {cat.label}
-                      </h3>
-                      <p className="text-[10px] text-zinc-400 font-medium">
-                        {cat.defaultTime} · {catEntries.length} items
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    {catCal > 0 ? (
-                      <span className="text-xs font-black text-white bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">
-                        {Math.round(catCal)} <span className="text-[10px] font-normal text-zinc-400">kcal</span>
-                      </span>
-                    ) : (
-                      <motion.button
-                        whileTap={{ scale: 0.95 }}
-                        onClick={onOpenLogModal}
-                        className="text-xs font-extrabold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-xl flex items-center space-x-1"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add</span>
-                      </motion.button>
-                    )}
+                    <span className="text-xs font-extrabold text-white">Calories</span>
                   </div>
                 </div>
+                <div className="space-y-1">
+                  <span className="text-[11px] font-bold text-zinc-400 block">
+                    <strong className="text-white font-black text-sm">{Math.round(totalCalories).toLocaleString()}</strong> / {calTarget.toLocaleString()} kcal
+                  </span>
+                  <div className="w-full bg-zinc-800/80 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-orange-500 to-[#16E39B] rounded-full transition-all duration-500"
+                      style={{ width: `${calPct}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] text-zinc-400 font-medium pt-0.5">
+                    <span>{calPct}%</span>
+                    <span className="text-[#16E39B] font-bold">{calRemaining.toLocaleString()} left</span>
+                  </div>
+                </div>
+              </motion.div>
 
-                {/* Entry List */}
-                {catEntries.length > 0 ? (
-                  <div className="space-y-2">
-                    <AnimatePresence>
-                      {catEntries.map((entry) => {
-                        const isBeingDragged = draggedEntryId === entry.id;
-                        const isMoveMenuOpen = activeMoveEntryId === entry.id;
+              {/* Protein Card */}
+              <motion.div
+                onClick={() => {
+                  setMainSubTab('nutrition');
+                  setNutritionTab('nutrients');
+                  setActiveNutrientKey('protein');
+                }}
+                whileTap={{ scale: 0.98 }}
+                className="bg-[#121212] border border-white/10 rounded-2xl p-3.5 hover:border-[#16E39B]/50 transition-colors cursor-pointer shadow-md space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5">
+                    <div className="w-6 h-6 rounded-lg bg-[#16E39B]/10 border border-[#16E39B]/20 flex items-center justify-center text-[#16E39B]">
+                      <Dumbbell className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-xs font-extrabold text-white">Protein</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[11px] font-bold text-zinc-400 block">
+                    <strong className="text-white font-black text-sm">{Math.round(totalProtein)} g</strong> / {proTarget} g
+                  </span>
+                  <div className="w-full bg-zinc-800/80 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[#16E39B] rounded-full transition-all duration-500"
+                      style={{ width: `${proPct}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] text-zinc-400 font-medium pt-0.5">
+                    <span>{proPct}%</span>
+                    <span className="text-[#16E39B] font-bold">{proRemaining} g left</span>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
 
-                        return (
-                          <motion.div
-                            key={entry.id}
-                            layout
-                            draggable={true}
-                            onDragStart={(e) => {
-                              // @ts-ignore
-                              e.dataTransfer.setData('text/plain', entry.id);
-                              setDraggedEntryId(entry.id);
-                              // @ts-ignore
-                              e.dataTransfer.effectAllowed = 'move';
-                            }}
-                            onDragEnd={() => {
-                              setDraggedEntryId(null);
-                              setDragOverCategory(null);
-                            }}
-                            onTouchStart={() => {
-                              longPressTimerRef.current = setTimeout(() => {
-                                setActiveMoveEntryId(entry.id);
-                              }, 350);
-                            }}
-                            onTouchEnd={() => {
-                              if (longPressTimerRef.current) {
-                                clearTimeout(longPressTimerRef.current);
-                              }
-                            }}
-                            onTouchMove={() => {
-                              if (longPressTimerRef.current) {
-                                clearTimeout(longPressTimerRef.current);
-                              }
-                            }}
-                            onClick={() => {
-                              if (!isMoveMenuOpen) {
-                                onSelectEntry?.(entry);
-                              }
-                            }}
-                            initial={{ opacity: 0, scale: 0.96 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.96, x: -10 }}
-                            transition={{ duration: 0.2 }}
-                            className={`flex flex-col p-3 bg-[#0D0E12] border rounded-xl group transition-all cursor-pointer ${
-                              isBeingDragged
-                                ? 'border-indigo-500 opacity-50 bg-indigo-950/30 scale-95'
-                                : 'border-white/5 hover:border-indigo-500/40'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-2">
-                                <div
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveMoveEntryId(isMoveMenuOpen ? null : entry.id);
-                                  }}
-                                  className="p-1 rounded text-zinc-500 hover:text-indigo-300 hover:bg-white/5 transition-colors cursor-grab shrink-0"
-                                  title="Drag or tap to move meal"
-                                >
-                                  <GripVertical className="w-4 h-4" />
-                                </div>
+            {/* Prominent Log Food Action Button */}
+            <motion.div
+              onClick={onOpenLogModal}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
+              className="relative w-full overflow-hidden rounded-2xl border border-[#16E39B]/35 bg-gradient-to-r from-[#03291B] via-[#021F14] to-[#01140C] p-4 transition-all shadow-xl shadow-[#16E39B]/10 cursor-pointer flex items-center justify-between my-2"
+            >
+              <div className="relative z-10 flex items-center space-x-3.5">
+                <div className="w-10 h-10 rounded-xl bg-[#083827] border border-[#16E39B]/40 flex items-center justify-center shrink-0 text-[#16E39B] shadow-inner">
+                  <Plus className="w-5 h-5 stroke-[2.8]" />
+                </div>
+                <div>
+                  <span className="text-sm font-extrabold block text-white tracking-tight">
+                    Log Food
+                  </span>
+                  <span className="text-[11px] text-[#A2F2D5] font-medium">
+                    Add meal, scan barcode, photo or voice
+                  </span>
+                </div>
+              </div>
+            </motion.div>
 
-                                <div className="space-y-0.5">
-                                  <div className="flex items-center space-x-1.5 flex-wrap">
-                                    {entry.foodItem.brand &&
-                                      !['voice input', 'camera log', '3d depth scan', 'photo log', 'custom entry', 'custom', 'ai estimate'].includes(
-                                        entry.foodItem.brand.toLowerCase()
-                                      ) && (
-                                        <span className="text-[9px] font-black uppercase tracking-wider bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded">
-                                          {entry.foodItem.brand}
-                                        </span>
-                                      )}
-                                    <p className="text-xs font-bold text-white group-hover:text-indigo-300 transition-colors">
-                                      {entry.foodItem.name}
-                                    </p>
-                                  </div>
-                                  <p className="text-[11px] text-zinc-400 flex items-center space-x-2">
-                                    <span>
-                                      {entry.servings !== 1 ? `${entry.servings}x ` : ''}
-                                      {entry.foodItem.serving.amount}{' '}
-                                      {entry.foodItem.serving.unit}
-                                    </span>
-                                    <span>·</span>
-                                    <span className="text-emerald-400 font-semibold">
-                                      {Math.round(
-                                        (entry.foodItem.nutritionPerServing.proteinG || 0) * entry.servings
-                                      )}
-                                      g protein
-                                    </span>
-                                  </p>
-                                </div>
-                              </div>
+            {/* Meals Grouped Section */}
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-black text-white tracking-tight uppercase">
+                  Meals Logged
+                </h2>
+                <span className="text-xs font-bold text-zinc-400 bg-white/5 px-2.5 py-0.5 rounded-full border border-white/10">
+                  {dayFoodEntries.length} items
+                </span>
+              </div>
 
-                              <div className="flex items-center space-x-2.5">
-                                <span className="text-xs font-extrabold text-white">
-                                  {Math.round(
-                                    (entry.foodItem.nutritionPerServing.calories || 0) * entry.servings
-                                  )}
-                                  <span className="text-[10px] text-zinc-400 font-normal ml-0.5">kcal</span>
+              <div className="space-y-3">
+                {mealCategories.map((cat) => {
+                  const Icon = cat.icon;
+                  const catEntries = dayFoodEntries.filter((e) => e.mealType === cat.type);
+                  const catCal = catEntries.reduce(
+                    (sum, e) => sum + (e.foodItem.nutritionPerServing.calories || 0) * e.servings,
+                    0
+                  );
+                  const isDropTarget = dragOverCategory === cat.type;
+
+                  return (
+                    <div
+                      key={cat.type}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (dragOverCategory !== cat.type) {
+                          setDragOverCategory(cat.type);
+                        }
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                          setDragOverCategory(null);
+                        }
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const entryId = e.dataTransfer.getData('text/plain') || draggedEntryId;
+                        if (entryId && onUpdateEntryMealType) {
+                          onUpdateEntryMealType(entryId, cat.type);
+                        }
+                        setDraggedEntryId(null);
+                        setDragOverCategory(null);
+                      }}
+                      className={`bg-[#121212] border transition-all duration-200 rounded-2xl p-3.5 space-y-2.5 shadow-sm ${
+                        isDropTarget
+                          ? 'border-2 border-dashed border-[#16E39B] bg-[#16E39B]/10 shadow-lg scale-[1.01]'
+                          : 'border-white/10'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                        <div className="flex items-center space-x-2.5">
+                          <div className={`w-7 h-7 rounded-lg ${cat.bgColor} flex items-center justify-center ${cat.color} shrink-0`}>
+                            <Icon className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <h3 className="text-xs font-black text-white">
+                              {cat.label}
+                            </h3>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          {catCal > 0 ? (
+                            <span className="text-xs font-black text-white bg-white/5 px-2.5 py-0.5 rounded-lg border border-white/10">
+                              {Math.round(catCal)} <span className="text-[10px] font-normal text-zinc-400">kcal</span>
+                            </span>
+                          ) : (
+                            <motion.button
+                              whileTap={{ scale: 0.95 }}
+                              onClick={onOpenLogModal}
+                              className="text-[11px] font-extrabold text-[#16E39B] hover:text-[#16E39B]/80 bg-[#16E39B]/10 border border-[#16E39B]/20 px-2.5 py-0.5 rounded-lg flex items-center space-x-1"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Add</span>
+                            </motion.button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Entry List */}
+                      {catEntries.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {catEntries.map((entry) => (
+                            <div
+                              key={entry.id}
+                              onClick={() => onSelectEntry?.(entry)}
+                              className="flex items-center justify-between p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                            >
+                              <div className="space-y-0.5">
+                                <span className="text-xs font-bold text-white block">
+                                  {entry.foodItem.name}
                                 </span>
-                                <motion.button
-                                  whileTap={{ scale: 0.85 }}
+                                <span className="text-[10px] text-zinc-400 block font-medium">
+                                  {entry.servings} serving ({entry.foodItem.serving?.label || '100g'})
+                                </span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-xs font-black text-[#16E39B]">
+                                  {Math.round(entry.foodItem.nutritionPerServing.calories * entry.servings)} kcal
+                                </span>
+                                <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     onDeleteEntry(entry.id);
                                   }}
-                                  className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                                  aria-label="Delete entry"
+                                  className="text-zinc-500 hover:text-red-400 p-1"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
-                                </motion.button>
+                                </button>
                               </div>
                             </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-zinc-500 italic py-1">
+                          No items logged for {cat.label.toLowerCase()} yet.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          /* ==================== VIEW 2: NUTRITION TAB ==================== */
+          <motion.div
+            key={`nutrition_${nutritionTab}_${selectedDate}`}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.15 }}
+            className="space-y-5"
+          >
+            {/* ----------------- SUB-TAB 1: CALORIES ----------------- */}
+            {nutritionTab === 'calories' && (
+              <div className="space-y-4">
+                {/* Calories by meal Pie/Donut Chart */}
+                <div className="bg-[#121212] border border-white/10 rounded-3xl p-5 shadow-xl space-y-4">
+                  <h3 className="text-sm font-extrabold text-white tracking-tight">
+                    Calories by meal
+                  </h3>
 
-                            {/* Quick Move Selector Pill on Hold / Tap */}
-                            {isMoveMenuOpen && (
-                              <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: 'auto' }}
-                                exit={{ opacity: 0, height: 0 }}
-                                className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between space-x-2 overflow-x-auto"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <span className="text-[10px] font-extrabold text-indigo-300 uppercase shrink-0 flex items-center space-x-1">
-                                  <ArrowRightLeft className="w-3 h-3" />
-                                  <span>Move to:</span>
-                                </span>
-                                <div className="flex items-center space-x-1">
-                                  {(['breakfast', 'lunch', 'dinner', 'snacks'] as MealType[]).map((m) => (
-                                    <button
-                                      key={m}
-                                      disabled={entry.mealType === m}
-                                      onClick={() => {
-                                        onUpdateEntryMealType?.(entry.id, m);
-                                        setActiveMoveEntryId(null);
-                                      }}
-                                      className={`px-2 py-1 text-[10px] font-extrabold rounded-md capitalize transition-all ${
-                                        entry.mealType === m
-                                          ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-                                          : 'bg-indigo-600/30 border border-indigo-500/40 text-indigo-200 hover:bg-indigo-600 hover:text-white'
-                                      }`}
-                                    >
-                                      {m}
-                                    </button>
-                                  ))}
-                                </div>
-                              </motion.div>
-                            )}
-                          </motion.div>
-                        );
-                      })}
-                    </AnimatePresence>
+                  <div className="flex flex-col sm:flex-row items-center justify-around py-2 gap-4">
+                    {/* Donut Visual */}
+                    <div className="relative w-40 h-40 flex items-center justify-center shrink-0">
+                      <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="38" className="stroke-zinc-800/80" strokeWidth="10" fill="none" />
+                        
+                        {/* Breakfast Arc (Orange #F97316) */}
+                        <circle
+                          cx="50" cy="50" r="38"
+                          className="stroke-orange-500"
+                          strokeWidth="10"
+                          strokeDasharray={`${(bfastPct / 100) * 238.76} 238.76`}
+                          strokeDashoffset="0"
+                          fill="none"
+                        />
+                        {/* Lunch Arc (Green #10B981) */}
+                        <circle
+                          cx="50" cy="50" r="38"
+                          className="stroke-emerald-500"
+                          strokeWidth="10"
+                          strokeDasharray={`${(lunchPct / 100) * 238.76} 238.76`}
+                          strokeDashoffset={`-${(bfastPct / 100) * 238.76}`}
+                          fill="none"
+                        />
+                        {/* Dinner Arc (Blue #3B82F6) */}
+                        <circle
+                          cx="50" cy="50" r="38"
+                          className="stroke-blue-500"
+                          strokeWidth="10"
+                          strokeDasharray={`${(dinnerPct / 100) * 238.76} 238.76`}
+                          strokeDashoffset={`-${((bfastPct + lunchPct) / 100) * 238.76}`}
+                          fill="none"
+                        />
+                        {/* Snacks Arc (Purple #8B5CF6) */}
+                        <circle
+                          cx="50" cy="50" r="38"
+                          className="stroke-purple-500"
+                          strokeWidth="10"
+                          strokeDasharray={`${(snackPct / 100) * 238.76} 238.76`}
+                          strokeDashoffset={`-${((bfastPct + lunchPct + dinnerPct) / 100) * 238.76}`}
+                          fill="none"
+                        />
+                      </svg>
+
+                      {/* Donut Center */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                        <span className="text-xl font-black text-white tracking-tight">
+                          {displayTotalCals.toLocaleString()}
+                        </span>
+                        <span className="text-[10px] text-zinc-400 font-bold uppercase">
+                          kcal
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Meal Legend List */}
+                    <div className="space-y-2.5 w-full sm:w-auto shrink-0">
+                      <div className="flex items-center justify-between space-x-4 text-xs">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+                          <span className="font-bold text-white">Breakfast</span>
+                        </div>
+                        <span className="font-black text-zinc-300">{bfastCal} kcal ({bfastPct}%)</span>
+                      </div>
+
+                      <div className="flex items-center justify-between space-x-4 text-xs">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                          <span className="font-bold text-white">Lunch</span>
+                        </div>
+                        <span className="font-black text-zinc-300">{lunchCal} kcal ({lunchPct}%)</span>
+                      </div>
+
+                      <div className="flex items-center justify-between space-x-4 text-xs">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                          <span className="font-bold text-white">Dinner</span>
+                        </div>
+                        <span className="font-black text-zinc-300">{dinnerCal} kcal ({dinnerPct}%)</span>
+                      </div>
+
+                      <div className="flex items-center justify-between space-x-4 text-xs">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+                          <span className="font-bold text-white">Snacks</span>
+                        </div>
+                        <span className="font-black text-zinc-300">{snackCal} kcal ({snackPct}%)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Calorie Summary Data Rows */}
+                <div className="bg-[#121212] border border-white/10 rounded-2xl p-4 shadow-md space-y-3 text-xs">
+                  <div className="flex justify-between items-center py-1 border-b border-white/5">
+                    <span className="text-zinc-400 font-medium">Food consumed</span>
+                    <span className="font-black text-white">{displayTotalCals.toLocaleString()} kcal</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-white/5">
+                    <span className="text-zinc-400 font-medium">Activity recorded</span>
+                    <span className="font-black text-amber-400">{displayActivityCals.toLocaleString()} kcal</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-white/5">
+                    <span className="text-zinc-400 font-medium">Food less activity</span>
+                    <span className="font-black text-white">{displayNetCals.toLocaleString()} kcal</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-white/5">
+                    <span className="text-zinc-400 font-medium">Daily target</span>
+                    <span className="font-black text-white">{calTarget.toLocaleString()} kcal</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-1 font-bold">
+                    <span className="text-zinc-300">Remaining</span>
+                    <span className="font-black text-[#16E39B] text-sm">
+                      {Math.max(0, calTarget - displayNetCals).toLocaleString()} kcal
+                    </span>
+                  </div>
+                </div>
+
+                {/* Foods Highest in Calories Section */}
+                <div className="bg-[#121212] border border-white/10 rounded-3xl p-4.5 shadow-xl space-y-3">
+                  <h3 className="text-xs font-black text-white uppercase tracking-wider">
+                    Foods highest in calories
+                  </h3>
+
+                  <div className="divide-y divide-white/5">
+                    {foodsHighestInCalories.length > 0 ? (
+                      foodsHighestInCalories.map((e) => (
+                        <div
+                          key={e.id}
+                          onClick={() => onSelectEntry?.(e)}
+                          className="py-2.5 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer rounded-xl px-1"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400">
+                              <Flame className="w-4 h-4" />
+                            </div>
+                            <span className="text-xs font-bold text-white">{e.foodItem.name}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs font-black text-zinc-300">
+                              {Math.round(e.foodItem.nutritionPerServing.calories * e.servings)} kcal
+                            </span>
+                            <ChevronRightIcon className="w-4 h-4 text-zinc-500" />
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-zinc-500 italic py-3 text-center">
+                        No food logged for this date.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ----------------- SUB-TAB 2: NUTRIENTS ----------------- */}
+            {nutritionTab === 'nutrients' && (
+              <div className="space-y-4">
+                {activeNutrientKey ? (
+                  /* Single Nutrient Source Breakdown View */
+                  <div className="bg-[#121212] border border-white/10 rounded-3xl p-5 shadow-xl space-y-4">
+                    <button
+                      onClick={() => setActiveNutrientKey(null)}
+                      className="text-xs font-bold text-[#16E39B] hover:underline flex items-center space-x-1"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      <span>Back to all nutrients</span>
+                    </button>
+
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                      <div>
+                        <h2 className="text-lg font-black text-white capitalize">{activeNutrientKey}</h2>
+                        <span className="text-xs text-zinc-400">
+                          {Math.round(activeNutrientKey === 'protein' ? totalProtein : totalCarbs)} g of {proTarget} g
+                        </span>
+                      </div>
+                      <span className="text-xs font-black text-[#16E39B] bg-[#16E39B]/10 px-3 py-1 rounded-full border border-[#16E39B]/20">
+                        {proPct}% of goal
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="text-xs font-black text-zinc-400 uppercase tracking-wider">
+                        {activeNutrientKey} sources
+                      </h3>
+
+                      <div className="divide-y divide-white/5">
+                        {foodsHighestInProtein.length > 0 ? (
+                          foodsHighestInProtein.map((e) => (
+                            <div key={e.id} className="py-2.5 flex items-center justify-between px-1">
+                              <span className="text-xs font-bold text-white">{e.foodItem.name}</span>
+                              <span className="text-xs font-black text-[#16E39B]">
+                                {Math.round((e.foodItem.nutritionPerServing.proteinG || 0) * e.servings)} g
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-zinc-500 italic py-3 text-center">
+                            No food logged for this date.
+                          </p>
+                        )}
+                      </div>
+
+                      <p className="text-[10px] text-zinc-500 italic pt-2">
+                        Sources are calculated from your logged foods today.
+                      </p>
+                    </div>
                   </div>
                 ) : (
-                  <p className="text-[11px] text-zinc-500 italic py-0.5">
-                    No foods logged for {cat.label.toLowerCase()} yet.
-                  </p>
+                  /* Full Nutrients Table View (100% Real Calculated Values) */
+                  <div className="bg-[#121212] border border-white/10 rounded-3xl p-4.5 shadow-xl space-y-3">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-white/10 text-[10px] font-black uppercase text-zinc-400 tracking-wider">
+                            <th className="py-2 px-2">Nutrient</th>
+                            <th className="py-2 px-2 text-right">Total</th>
+                            <th className="py-2 px-2 text-right">Goal</th>
+                            <th className="py-2 px-2 text-right">Left</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 font-medium text-zinc-300">
+                          {/* Protein */}
+                          <tr
+                            onClick={() => setActiveNutrientKey('protein')}
+                            className="hover:bg-white/5 transition-colors cursor-pointer"
+                          >
+                            <td className="py-2.5 px-2 font-bold text-white flex items-center space-x-2">
+                              <span className="w-2 h-2 rounded-full bg-[#16E39B]" />
+                              <span>Protein</span>
+                            </td>
+                            <td className="py-2.5 px-2 text-right font-bold text-white">{Math.round(totalProtein)} g</td>
+                            <td className="py-2.5 px-2 text-right text-zinc-400">{proTarget} g</td>
+                            <td className="py-2.5 px-2 text-right font-bold text-[#16E39B]">{proRemaining} g</td>
+                          </tr>
+
+                          {/* Carbohydrates */}
+                          <tr
+                            onClick={() => setActiveNutrientKey('carbohydrates')}
+                            className="hover:bg-white/5 transition-colors cursor-pointer"
+                          >
+                            <td className="py-2.5 px-2 font-bold text-white flex items-center space-x-2">
+                              <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                              <span>Carbohydrates</span>
+                            </td>
+                            <td className="py-2.5 px-2 text-right font-bold text-white">{Math.round(totalCarbs)} g</td>
+                            <td className="py-2.5 px-2 text-right text-zinc-400">{carbsTarget} g</td>
+                            <td className="py-2.5 px-2 text-right font-bold text-cyan-400">{carbsRemaining} g</td>
+                          </tr>
+
+                          {/* Fibre */}
+                          <tr
+                            onClick={() => setActiveNutrientKey('fibre')}
+                            className="hover:bg-white/5 transition-colors cursor-pointer"
+                          >
+                            <td className="py-2.5 px-2 font-bold text-white flex items-center space-x-2">
+                              <span className="w-2 h-2 rounded-full bg-yellow-400" />
+                              <span>Fibre</span>
+                            </td>
+                            <td className="py-2.5 px-2 text-right font-bold text-white">{Math.round(totalFibre)} g</td>
+                            <td className="py-2.5 px-2 text-right text-zinc-400">30 g</td>
+                            <td className="py-2.5 px-2 text-right font-bold text-yellow-400">{fibreRemaining} g</td>
+                          </tr>
+
+                          {/* Fat */}
+                          <tr
+                            onClick={() => setActiveNutrientKey('fat')}
+                            className="hover:bg-white/5 transition-colors cursor-pointer"
+                          >
+                            <td className="py-2.5 px-2 font-bold text-white flex items-center space-x-2">
+                              <span className="w-2 h-2 rounded-full bg-purple-400" />
+                              <span>Fat</span>
+                            </td>
+                            <td className="py-2.5 px-2 text-right font-bold text-white">{Math.round(totalFat)} g</td>
+                            <td className="py-2.5 px-2 text-right text-zinc-400">70 g</td>
+                            <td className="py-2.5 px-2 text-right font-bold text-purple-400">{fatRemaining} g</td>
+                          </tr>
+
+                          {/* Saturated Fat */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                            <td className="py-2.5 px-2 text-zinc-300">Saturated Fat</td>
+                            <td className="py-2.5 px-2 text-right font-bold text-white">{Math.round(totalSaturatedFat)} g</td>
+                            <td className="py-2.5 px-2 text-right text-zinc-400">22 g</td>
+                            <td className="py-2.5 px-2 text-right font-bold text-zinc-300">{Math.max(0, 22 - Math.round(totalSaturatedFat))} g</td>
+                          </tr>
+
+                          {/* Sugar */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                            <td className="py-2.5 px-2 text-zinc-300">Sugar</td>
+                            <td className="py-2.5 px-2 text-right font-bold text-white">{Math.round(totalSugar)} g</td>
+                            <td className="py-2.5 px-2 text-right text-zinc-400">50 g</td>
+                            <td className="py-2.5 px-2 text-right font-bold text-zinc-300">{Math.max(0, 50 - Math.round(totalSugar))} g</td>
+                          </tr>
+
+                          {/* Sodium */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                            <td className="py-2.5 px-2 text-zinc-300">Sodium</td>
+                            <td className="py-2.5 px-2 text-right font-bold text-white">{Math.round(totalSodium).toLocaleString()} mg</td>
+                            <td className="py-2.5 px-2 text-right text-zinc-400">2,300 mg</td>
+                            <td className="py-2.5 px-2 text-right font-bold text-zinc-300">{Math.max(0, 2300 - Math.round(totalSodium)).toLocaleString()} mg</td>
+                          </tr>
+
+                          {/* Potassium */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                            <td className="py-2.5 px-2 text-zinc-300">Potassium</td>
+                            <td className="py-2.5 px-2 text-right font-bold text-white">{Math.round(totalPotassium).toLocaleString()} mg</td>
+                            <td className="py-2.5 px-2 text-right text-zinc-500">--</td>
+                            <td className="py-2.5 px-2 text-right text-zinc-500">--</td>
+                          </tr>
+
+                          {/* Calcium */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                            <td className="py-2.5 px-2 text-zinc-300">Calcium</td>
+                            <td className="py-2.5 px-2 text-right font-bold text-white">{Math.round(totalCalcium).toLocaleString()} mg</td>
+                            <td className="py-2.5 px-2 text-right text-zinc-500">--</td>
+                            <td className="py-2.5 px-2 text-right text-zinc-500">--</td>
+                          </tr>
+
+                          {/* Iron */}
+                          <tr className="hover:bg-white/5 transition-colors">
+                            <td className="py-2.5 px-2 text-zinc-300">Iron</td>
+                            <td className="py-2.5 px-2 text-right font-bold text-white">{Math.round(totalIron * 10) / 10} mg</td>
+                            <td className="py-2.5 px-2 text-right text-zinc-400">18 mg</td>
+                            <td className="py-2.5 px-2 text-right font-bold text-zinc-300">{Math.max(0, Math.round((18 - totalIron) * 10) / 10)} mg</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 )}
               </div>
-            );
-          })}
-        </div>
-      </div>
-    </motion.div>
-  </AnimatePresence>
-  </div>
-  </div>
-);
+            )}
+
+            {/* ----------------- SUB-TAB 3: MACROS ----------------- */}
+            {nutritionTab === 'macros' && (
+              <div className="space-y-4">
+                {/* Macro breakdown Donut Visual */}
+                <div className="bg-[#121212] border border-white/10 rounded-3xl p-5 shadow-xl space-y-4">
+                  <h3 className="text-sm font-extrabold text-white tracking-tight">
+                    Macro breakdown
+                  </h3>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-around py-2 gap-4">
+                    {/* Donut Chart */}
+                    <div className="relative w-40 h-40 flex items-center justify-center shrink-0">
+                      <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="38" className="stroke-zinc-800/80" strokeWidth="11" fill="none" />
+                        
+                        {/* Carbs Arc (Cyan #3B82F6) */}
+                        <circle
+                          cx="50" cy="50" r="38"
+                          className="stroke-cyan-400"
+                          strokeWidth="11"
+                          strokeDasharray={`${(macroCarbsPct / 100) * 238.76} 238.76`}
+                          strokeDashoffset="0"
+                          fill="none"
+                        />
+                        {/* Fat Arc (Purple #8B5CF6) */}
+                        <circle
+                          cx="50" cy="50" r="38"
+                          className="stroke-purple-500"
+                          strokeWidth="11"
+                          strokeDasharray={`${(macroFatPct / 100) * 238.76} 238.76`}
+                          strokeDashoffset={`-${(macroCarbsPct / 100) * 238.76}`}
+                          fill="none"
+                        />
+                        {/* Protein Arc (Coral/Red #F43F5E) */}
+                        <circle
+                          cx="50" cy="50" r="38"
+                          className="stroke-rose-500"
+                          strokeWidth="11"
+                          strokeDasharray={`${(macroProteinPct / 100) * 238.76} 238.76`}
+                          strokeDashoffset={`-${((macroCarbsPct + macroFatPct) / 100) * 238.76}`}
+                          fill="none"
+                        />
+                      </svg>
+                    </div>
+
+                    {/* Macro Legend */}
+                    <div className="space-y-3 w-full sm:w-auto shrink-0 text-xs">
+                      <div className="flex items-center justify-between space-x-4">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
+                          <span className="font-bold text-white">Carbohydrates ({Math.round(totalCarbs)}g)</span>
+                        </div>
+                        <span className="font-black text-cyan-400">{macroCarbsPct}%</span>
+                      </div>
+
+                      <div className="flex items-center justify-between space-x-4">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+                          <span className="font-bold text-white">Fat ({Math.round(totalFat)}g)</span>
+                        </div>
+                        <span className="font-black text-purple-400">{macroFatPct}%</span>
+                      </div>
+
+                      <div className="flex items-center justify-between space-x-4">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                          <span className="font-bold text-white">Protein ({Math.round(totalProtein)}g)</span>
+                        </div>
+                        <span className="font-black text-rose-400">{macroProteinPct}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Total vs Goal Table */}
+                <div className="bg-[#121212] border border-white/10 rounded-2xl p-4 shadow-md space-y-2 text-xs">
+                  <div className="flex justify-between items-center pb-2 border-b border-white/10 text-[10px] uppercase font-black text-zinc-400 tracking-wider">
+                    <span>Macro</span>
+                    <div className="space-x-8">
+                      <span>Total</span>
+                      <span>Goal</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1 border-b border-white/5">
+                    <span className="font-bold text-white">Carbohydrates</span>
+                    <div className="space-x-8 font-black">
+                      <span className="text-cyan-400">{macroCarbsPct}%</span>
+                      <span className="text-zinc-400">45%</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1 border-b border-white/5">
+                    <span className="font-bold text-white">Fat</span>
+                    <div className="space-x-8 font-black">
+                      <span className="text-purple-400">{macroFatPct}%</span>
+                      <span className="text-zinc-400">30%</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1 pt-2">
+                    <span className="font-bold text-white">Protein</span>
+                    <div className="space-x-8 font-black">
+                      <span className="text-rose-400">{macroProteinPct}%</span>
+                      <span className="text-zinc-400">25%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Foods Highest in Protein */}
+                <div className="bg-[#121212] border border-white/10 rounded-3xl p-4.5 shadow-xl space-y-3">
+                  <h3 className="text-xs font-black text-white uppercase tracking-wider">
+                    Foods highest in protein
+                  </h3>
+
+                  <div className="divide-y divide-white/5">
+                    {foodsHighestInProtein.length > 0 ? (
+                      foodsHighestInProtein.map((e) => (
+                        <div
+                          key={e.id}
+                          onClick={() => onSelectEntry?.(e)}
+                          className="py-2.5 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer rounded-xl px-1"
+                        >
+                          <span className="text-xs font-bold text-white">{e.foodItem.name}</span>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs font-black text-[#16E39B]">
+                              {Math.round((e.foodItem.nutritionPerServing.proteinG || 0) * e.servings)} g
+                            </span>
+                            <ChevronRightIcon className="w-4 h-4 text-zinc-500" />
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-zinc-500 italic py-3 text-center">
+                        No food logged for this date.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 };

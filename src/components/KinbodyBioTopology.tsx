@@ -13,7 +13,7 @@ interface KinbodyBioTopologyProps {
  * and magnetic field lines with focal points behind the Kinbody logo (top-left)
  * and Log Food CTA (lower-right).
  */
-export const KinbodyBioTopology: React.FC<KinbodyBioTopologyProps> = ({
+export const KinbodyBioTopology: React.FC<KinbodyBioTopologyProps> = React.memo(({
   className = '',
   isReducedMotion = false,
 }) => {
@@ -127,4 +127,4 @@ export const KinbodyBioTopology: React.FC<KinbodyBioTopologyProps> = ({
       </motion.svg>
     </div>
   );
-};
+});

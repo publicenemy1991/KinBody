@@ -2,9 +2,20 @@ import React from 'react';
 
 interface KinbodyIconProps {
   className?: string;
+  variant?: 'gradient' | 'mono-dark' | 'mono-light';
 }
 
-export const KinbodyIcon: React.FC<KinbodyIconProps> = ({ className = 'w-8 h-8' }) => {
+export const KinbodyIcon: React.FC<KinbodyIconProps> = ({
+  className = 'w-8 h-8',
+  variant = 'gradient',
+}) => {
+  const fillColor =
+    variant === 'mono-dark'
+      ? '#000000'
+      : variant === 'mono-light'
+      ? '#FFFFFF'
+      : 'url(#kinbodyLogoGrad)';
+
   return (
     <svg
       viewBox="0 0 100 100"
@@ -14,25 +25,42 @@ export const KinbodyIcon: React.FC<KinbodyIconProps> = ({ className = 'w-8 h-8' 
     >
       <defs>
         <linearGradient id="kinbodyLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#22E49B" />
-          <stop offset="50%" stopColor="#00D084" />
-          <stop offset="100%" stopColor="#05C270" />
+          <stop offset="0%" stopColor="#41F8B5" />
+          <stop offset="40%" stopColor="#16E39B" />
+          <stop offset="85%" stopColor="#02B36B" />
+          <stop offset="100%" stopColor="#00824C" />
         </linearGradient>
       </defs>
-      {/* Left Vertical Bar */}
-      <rect x="18" y="16" width="20" height="68" rx="10" fill="url(#kinbodyLogoGrad)" />
-      {/* Upper Diagonal Bar */}
-      <rect
-        x="36"
-        y="16"
-        width="20"
-        height="54"
-        rx="10"
-        transform="rotate(-42 36 16)"
-        fill="url(#kinbodyLogoGrad)"
+      {/* 1. Left Vertical Pill Stem */}
+      <line
+        x1="26"
+        y1="20"
+        x2="26"
+        y2="80"
+        stroke={fillColor}
+        strokeWidth="17"
+        strokeLinecap="round"
       />
-      {/* Lower Right Sphere/Dot */}
-      <circle cx="72" cy="72" r="12" fill="url(#kinbodyLogoGrad)" />
+      {/* 2. Upper Diagonal Pill Arm */}
+      <line
+        x1="36"
+        y1="49"
+        x2="74"
+        y2="21"
+        stroke={fillColor}
+        strokeWidth="17"
+        strokeLinecap="round"
+      />
+      {/* 3. Lower Diagonal Pill Leg */}
+      <line
+        x1="36"
+        y1="51"
+        x2="74"
+        y2="79"
+        stroke={fillColor}
+        strokeWidth="17"
+        strokeLinecap="round"
+      />
     </svg>
   );
 };

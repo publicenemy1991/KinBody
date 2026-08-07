@@ -18,32 +18,42 @@ export const KinbodyLogoIcon: React.FC<{ className?: string }> = ({
     >
       <defs>
         <linearGradient id="kinbodyLogoGradOnboarding" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#7AF2C4" />
+          <stop offset="0%" stopColor="#41F8B5" />
           <stop offset="40%" stopColor="#16E39B" />
-          <stop offset="100%" stopColor="#05C270" />
+          <stop offset="85%" stopColor="#02B36B" />
+          <stop offset="100%" stopColor="#00824C" />
         </linearGradient>
       </defs>
-      {/* Left Vertical Bar */}
-      <rect
-        x="18"
-        y="16"
-        width="20"
-        height="68"
-        rx="10"
-        fill="url(#kinbodyLogoGradOnboarding)"
+      {/* 1. Left Vertical Pill Stem */}
+      <line
+        x1="26"
+        y1="20"
+        x2="26"
+        y2="80"
+        stroke="url(#kinbodyLogoGradOnboarding)"
+        strokeWidth="17"
+        strokeLinecap="round"
       />
-      {/* Upper Diagonal Bar */}
-      <rect
-        x="36"
-        y="16"
-        width="20"
-        height="54"
-        rx="10"
-        transform="rotate(-42 36 16)"
-        fill="url(#kinbodyLogoGradOnboarding)"
+      {/* 2. Upper Diagonal Pill Arm */}
+      <line
+        x1="36"
+        y1="49"
+        x2="74"
+        y2="21"
+        stroke="url(#kinbodyLogoGradOnboarding)"
+        strokeWidth="17"
+        strokeLinecap="round"
       />
-      {/* Lower Right Sphere/Dot */}
-      <circle cx="72" cy="72" r="12" fill="url(#kinbodyLogoGradOnboarding)" />
+      {/* 3. Lower Diagonal Pill Leg */}
+      <line
+        x1="36"
+        y1="51"
+        x2="74"
+        y2="79"
+        stroke="url(#kinbodyLogoGradOnboarding)"
+        strokeWidth="17"
+        strokeLinecap="round"
+      />
     </svg>
   );
 };

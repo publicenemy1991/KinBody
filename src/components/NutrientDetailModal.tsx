@@ -164,7 +164,7 @@ export const NutrientDetailModal: React.FC<NutrientDetailModalProps> = ({
               <span>{defaultData.name}</span>
             </h2>
             <p className="text-[11px] text-indigo-400 font-semibold tracking-wide">
-              Huberman & Science Targets
+              Daily Science Targets
             </p>
           </div>
           <div className="w-10" />
