@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, User as UserIcon } from 'lucide-react';
+import { ArrowRight, User as UserIcon, Upload, FastForward } from 'lucide-react';
 import { KinbodyParticleIntro } from './KinbodyParticleIntro';
 import { KinbodyCompanion } from './KinbodyCompanion';
 
@@ -10,6 +10,8 @@ interface OnboardingIntroProps {
   nameValue: string;
   onNameChange: (val: string) => void;
   onNext: () => void;
+  onSkip?: () => void;
+  onImportBackup?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   validationError?: string | null;
 }
 
@@ -17,12 +19,15 @@ export const OnboardingIntro: React.FC<OnboardingIntroProps> = ({
   nameValue,
   onNameChange,
   onNext,
+  onSkip,
+  onImportBackup,
   validationError,
 }) => {
   const [stage, setStage] = useState<IntroStage>('particles');
   const [isButtonDisabled, setIsButtonDisabled] = useState<boolean>(false);
 
   const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     // Detect reduced motion setting
@@ -195,6 +200,39 @@ export const OnboardingIntro: React.FC<OnboardingIntroProps> = ({
                 <span>Get Started</span>
                 <ArrowRight className="w-4 h-4 stroke-[2.5]" />
               </button>
+
+              {/* Quick Options for Incognito / Returning Users */}
+              <div className="flex items-center justify-between text-xs text-zinc-400 pt-1 px-1">
+                {onSkip && (
+                  <button
+                    type="button"
+                    onClick={onSkip}
+                    className="hover:text-emerald-400 font-medium transition-colors flex items-center space-x-1"
+                  >
+                    <span>Quick Start (Skip)</span>
+                  </button>
+                )}
+
+                {onImportBackup && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".json"
+                      onChange={onImportBackup}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="hover:text-emerald-400 font-medium transition-colors flex items-center space-x-1"
+                    >
+                      <Upload className="w-3 h-3 text-emerald-400" />
+                      <span>Restore Backup</span>
+                    </button>
+                  </>
+                )}
+              </div>
 
               {/* Pagination Dots */}
               <div className="flex items-center justify-center space-x-2">

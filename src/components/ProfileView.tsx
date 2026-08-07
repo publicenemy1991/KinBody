@@ -15,10 +15,11 @@ import {
   RotateCcw,
   RefreshCw,
 } from 'lucide-react';
-import { UserProfile, UnitSystem, LoggedFoodEntry, WeightEntry, BodyScanEntry, ActivityLogEntry } from '../types';
+import { UserProfile, UserGoal, UnitSystem, LoggedFoodEntry, WeightEntry, BodyScanEntry, ActivityLogEntry } from '../types';
 import { KinCompanion } from './KinCompanion';
 import { PrivacyPolicyModal } from './PrivacyPolicyModal';
 import { localStorageRepository } from '../data/localStorageRepository';
+import { calculateTargets } from '../lib/macroCalculator';
 
 interface ProfileViewProps {
   userProfile: UserProfile;
@@ -52,6 +53,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const isImperial = userProfile.unitSystem === 'imperial';
   const [nameInput, setNameInput] = useState(userProfile.name || '');
   const [ageInput, setAgeInput] = useState((userProfile.age || 28).toString());
+  const [goalInput, setGoalInput] = useState<UserGoal>(userProfile.goal || 'lose_fat');
   const [calInput, setCalInput] = useState(userProfile.calorieTarget.toString());
   const [proInput, setProInput] = useState(userProfile.proteinTargetG.toString());
   const [weightInput, setWeightInput] = useState(
@@ -61,6 +63,26 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         : userProfile.weightKg.toString()
       : ''
   );
+
+  const handleGoalChange = (newGoal: UserGoal) => {
+    setGoalInput(newGoal);
+    const age = parseInt(ageInput) || userProfile.age || 28;
+    const rawW = parseFloat(weightInput);
+    const wKg = !isNaN(rawW) && rawW > 0
+      ? isImperial ? rawW / 2.20462 : rawW
+      : userProfile.weightKg || 75;
+
+    const calc = calculateTargets({
+      weightKg: wKg,
+      heightCm: userProfile.heightCm || 175,
+      age,
+      sex: userProfile.sex === 'female' ? 'female' : 'male',
+      goal: newGoal,
+    });
+
+    setCalInput(calc.calorieTarget.toString());
+    setProInput(calc.proteinTargetG.toString());
+  };
 
   // Export Data as JSON file
   const handleExportData = () => {
@@ -150,17 +172,28 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       ? isImperial ? rawW / 2.20462 : rawW
       : userProfile.weightKg;
 
+    const calc = calculateTargets({
+      weightKg: wKg > 0 ? wKg : 75,
+      heightCm: userProfile.heightCm || 175,
+      age,
+      sex: userProfile.sex === 'female' ? 'female' : 'male',
+      goal: goalInput,
+    });
+
     onUpdateProfile({
       ...userProfile,
       name: nameInput.trim() || userProfile.name,
       age,
+      goal: goalInput,
       calorieTarget: c,
       proteinTargetG: p,
+      carbsTargetG: calc.carbsTargetG,
+      fatTargetG: calc.fatTargetG,
       weightKg: Math.round(wKg * 10) / 10,
     });
 
     setActiveSettingsModal(null);
-    setNotificationStatus('Settings updated.');
+    setNotificationStatus('Settings & Targets updated.');
     setTimeout(() => setNotificationStatus(null), 3000);
   };
 
@@ -328,7 +361,47 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </button>
 
           {activeSettingsModal === 'targets' && (
-            <div className="p-4 space-y-3 bg-black/40">
+            <div className="p-4 space-y-4 bg-black/40">
+              <div>
+                <label className="text-xs text-zinc-400 block mb-2 font-semibold">Primary Goal</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'lose_fat', label: 'Lose Fat', desc: '18% Calorie Deficit' },
+                    { id: 'build_muscle', label: 'Build Muscle', desc: '10% Calorie Surplus' },
+                    { id: 'maintain', label: 'Maintain', desc: 'TDEE Maintenance' },
+                    { id: 'body_recomposition', label: 'Performance', desc: 'Slight 10% Deficit' },
+                  ].map((g) => {
+                    const isSel = goalInput === g.id;
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => handleGoalChange(g.id as UserGoal)}
+                        className={`p-2.5 rounded-xl border text-left transition-all ${
+                          isSel
+                            ? 'bg-emerald-500/15 border-emerald-400 text-white'
+                            : 'bg-[#14161C] border-white/10 text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        <span className="text-xs font-bold block text-white">{g.label}</span>
+                        <span className="text-[10px] text-zinc-400 block mt-0.5">{g.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-zinc-400 block mb-1 font-semibold">Current Weight ({isImperial ? 'lbs' : 'kg'})</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={weightInput}
+                  onChange={(e) => setWeightInput(e.target.value)}
+                  className="w-full bg-[#14161C] border border-white/10 rounded-xl px-3 py-2 text-sm text-white font-bold focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-zinc-400 block mb-1 font-semibold">Daily Calories</label>
@@ -349,22 +422,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   />
                 </div>
               </div>
-              <div>
-                <label className="text-xs text-zinc-400 block mb-1 font-semibold">Current Weight ({isImperial ? 'lbs' : 'kg'})</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={weightInput}
-                  onChange={(e) => setWeightInput(e.target.value)}
-                  className="w-full bg-[#14161C] border border-white/10 rounded-xl px-3 py-2 text-sm text-white font-bold focus:outline-none focus:border-emerald-500"
-                />
+
+              <div className="flex items-center space-x-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleGoalChange(goalInput)}
+                  className="flex-1 py-2 bg-white/5 border border-white/10 text-zinc-300 font-semibold text-xs rounded-xl hover:bg-white/10 hover:text-white transition-colors flex items-center justify-center space-x-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Auto-Calculate Targets</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveProfileSettings}
+                  className="flex-1 py-2 bg-emerald-500 text-black font-extrabold text-xs rounded-xl hover:bg-emerald-400 transition-colors"
+                >
+                  Save Targets
+                </button>
               </div>
-              <button
-                onClick={handleSaveProfileSettings}
-                className="w-full py-2.5 bg-emerald-500 text-black font-extrabold text-xs rounded-xl hover:bg-emerald-400 transition-colors"
-              >
-                Save Targets
-              </button>
             </div>
           )}
 

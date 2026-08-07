@@ -15,6 +15,8 @@ import {
 import { UserProfile, UserGoal, UnitSystem } from '../types';
 import { KinCompanion } from './KinCompanion';
 import { OnboardingIntro } from './onboarding/OnboardingIntro';
+import { calculateTargets } from '../lib/macroCalculator';
+import { localStorageRepository } from '../data/localStorageRepository';
 
 interface OnboardingWizardProps {
   initialProfile: UserProfile;
@@ -99,17 +101,13 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     const roundedWeight = Math.round(weightKg * 10) / 10;
     const roundedHeight = Math.round(heightCm);
 
-    // BMR & Target Calculation
-    let bmr = 10 * roundedWeight + 6.25 * roundedHeight - 5 * age;
-    if (sexInput === 'female') bmr -= 161;
-    else bmr += 5;
-
-    const tdee = Math.round(bmr * 1.375);
-    let cal = tdee;
-    if (profile.goal === 'lose_fat') cal = Math.round(tdee * 0.82);
-    else if (profile.goal === 'build_muscle') cal = Math.round(tdee * 1.1);
-
-    const pro = Math.round(roundedWeight * 2.0);
+    const calculated = calculateTargets({
+      weightKg: roundedWeight,
+      heightCm: roundedHeight,
+      age,
+      sex: sexInput === 'female' ? 'female' : 'male',
+      goal: profile.goal || 'lose_fat',
+    });
 
     const updated: UserProfile = {
       ...profile,
@@ -118,14 +116,88 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       sex: sexInput,
       weightKg: roundedWeight,
       heightCm: roundedHeight,
-      calorieTarget: cal,
-      proteinTargetG: pro,
+      calorieTarget: calculated.calorieTarget,
+      proteinTargetG: calculated.proteinTargetG,
+      carbsTargetG: calculated.carbsTargetG,
+      fatTargetG: calculated.fatTargetG,
     };
 
     setProfile(updated);
-    setCalTargetInput(cal.toString());
-    setProTargetInput(pro.toString());
+    setCalTargetInput(calculated.calorieTarget.toString());
+    setProTargetInput(calculated.proteinTargetG.toString());
     goToStep(3);
+  };
+
+  const handleSelectGoal = (newGoal: UserGoal) => {
+    const age = parseInt(ageInput) || profile.age || 28;
+    const calculated = calculateTargets({
+      weightKg: profile.weightKg || 75,
+      heightCm: profile.heightCm || 175,
+      age,
+      sex: profile.sex === 'female' ? 'female' : 'male',
+      goal: newGoal,
+    });
+
+    const updated: UserProfile = {
+      ...profile,
+      goal: newGoal,
+      calorieTarget: calculated.calorieTarget,
+      proteinTargetG: calculated.proteinTargetG,
+      carbsTargetG: calculated.carbsTargetG,
+      fatTargetG: calculated.fatTargetG,
+    };
+
+    setProfile(updated);
+    setCalTargetInput(calculated.calorieTarget.toString());
+    setProTargetInput(calculated.proteinTargetG.toString());
+  };
+
+  const handleSkip = () => {
+    const defaultProfile: UserProfile = {
+      ...profile,
+      name: nameInput.trim() || 'User',
+      onboardingCompleted: true,
+      onboardingStep: 3,
+    };
+    onCompleteOnboarding(defaultProfile);
+  };
+
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const parsed = JSON.parse(content);
+
+        if (parsed.profile) {
+          const restoredProfile = {
+            ...parsed.profile,
+            onboardingCompleted: true,
+            onboardingStep: 3,
+          };
+          localStorageRepository.saveProfile(restoredProfile);
+          if (Array.isArray(parsed.foodEntries)) {
+            localStorage.setItem('kinbody_food_entries_v1', JSON.stringify(parsed.foodEntries));
+          }
+          if (Array.isArray(parsed.weightEntries)) {
+            localStorage.setItem('kinbody_weight_entries_v1', JSON.stringify(parsed.weightEntries));
+          }
+          if (Array.isArray(parsed.bodyScanEntries)) {
+            localStorage.setItem('kinbody_bodyscans_v1', JSON.stringify(parsed.bodyScanEntries));
+          }
+          if (Array.isArray(parsed.activityLogs)) {
+            localStorage.setItem('kinbody_activities_v1', JSON.stringify(parsed.activityLogs));
+          }
+          onCompleteOnboarding(restoredProfile);
+        }
+      } catch (err) {
+        console.error('Failed to import backup during onboarding:', err);
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleComplete = () => {
@@ -174,6 +246,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               setValidationError(null);
             }}
             onNext={handleNextFromStep1}
+            onSkip={handleSkip}
+            onImportBackup={handleImportBackup}
             validationError={validationError}
           />
         )}
@@ -465,7 +539,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                     <button
                       key={opt.id}
                       type="button"
-                      onClick={() => setProfile({ ...profile, goal: opt.id as UserGoal })}
+                      onClick={() => handleSelectGoal(opt.id as UserGoal)}
                       className={`w-full p-3.5 rounded-2xl border text-left transition-all flex items-center justify-between ${
                         isSelected
                           ? 'bg-emerald-500/10 border-emerald-400 text-white'
