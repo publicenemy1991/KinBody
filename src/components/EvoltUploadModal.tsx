@@ -12,6 +12,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { BodyScanEntry } from '../types';
+import { compressImageFile } from '../lib/imageCompressor';
 
 interface EvoltUploadModalProps {
   isOpen: boolean;
@@ -46,44 +47,40 @@ export const EvoltUploadModal: React.FC<EvoltUploadModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result as string;
+    try {
+      const base64 = await compressImageFile(file, 1600, 1600, 0.82);
       setImagePreview(base64);
       setStep('analysing');
       setIsAnalyzing(true);
 
-      try {
-        const res = await fetch('/api/ai/parse-evolt-scan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            imageBase64: base64,
-            mimeType: file.type || 'image/jpeg',
-          }),
-        });
+      const res = await fetch('/api/ai/parse-evolt-scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64: base64,
+          mimeType: 'image/jpeg',
+        }),
+      });
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data.result) {
-            const r = data.result;
-            if (r.title) setTitle(r.title);
-            if (r.weightKg) setWeightKg(r.weightKg.toString());
-            if (r.bodyFatPercent) setBodyFatPercent(r.bodyFatPercent.toString());
-            if (r.skeletalMuscleKg) setSkeletalMuscleKg(r.skeletalMuscleKg.toString());
-            if (r.leanMassKg) setLeanMassKg(r.leanMassKg.toString());
-            if (r.fatMassKg) setFatMassKg(r.fatMassKg.toString());
-            if (r.visceralFatRating) setVisceralFatRating(r.visceralFatRating.toString());
-          }
+      if (res.ok) {
+        const data = await res.json();
+        if (data.result) {
+          const r = data.result;
+          if (r.title) setTitle(r.title);
+          if (r.weightKg) setWeightKg(r.weightKg.toString());
+          if (r.bodyFatPercent) setBodyFatPercent(r.bodyFatPercent.toString());
+          if (r.skeletalMuscleKg) setSkeletalMuscleKg(r.skeletalMuscleKg.toString());
+          if (r.leanMassKg) setLeanMassKg(r.leanMassKg.toString());
+          if (r.fatMassKg) setFatMassKg(r.fatMassKg.toString());
+          if (r.visceralFatRating) setVisceralFatRating(r.visceralFatRating.toString());
         }
-      } catch (err) {
-        console.error('Failed to parse scan image:', err);
-      } finally {
-        setIsAnalyzing(false);
-        setStep('review');
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Failed to parse scan image:', err);
+    } finally {
+      setIsAnalyzing(false);
+      setStep('review');
+    }
   };
 
   const handleConfirmSave = (e: React.FormEvent) => {

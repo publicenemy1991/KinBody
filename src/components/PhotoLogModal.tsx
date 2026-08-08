@@ -19,6 +19,7 @@ import {
   Disc,
 } from 'lucide-react';
 import { FoodItem } from '../types';
+import { compressImageFile } from '../lib/imageCompressor';
 
 interface PhotoLogModalProps {
   onClose: () => void;
@@ -100,36 +101,37 @@ export const PhotoLogModal: React.FC<PhotoLogModalProps> = ({
   }, [savedContainers]);
 
   // Handle main file upload
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
+      try {
+        const result = await compressImageFile(file, 1200, 1200, 0.82);
         setSelectedImage(result);
         if (scanMode === '3d_depth') {
           trigger3DDepthScan(result, secondImage);
         } else {
           analyzePhotoDirect(result, secondImage);
         }
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error('Failed to compress image:', err);
+        setError('Failed to process image file. Please try another image.');
+      }
     }
   };
 
   // Handle second 45-degree angle photo for depth fallback
-  const handleSecondPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSecondPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
+      try {
+        const result = await compressImageFile(file, 1200, 1200, 0.82);
         setSecondImage(result);
         if (selectedImage) {
           trigger3DDepthScan(selectedImage, result);
         }
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error('Failed to compress second image:', err);
+      }
     }
   };
 

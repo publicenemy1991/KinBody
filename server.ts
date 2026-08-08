@@ -300,7 +300,8 @@ function normalizeEnergy(rawVal: number, rawUnit?: string, protein = 0, carbs = 
 
 async function startServer() {
   const app = express();
-  app.use(express.json({ limit: '15mb' }));
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // --- API ROUTE 1: Barcode Lookup (OFF + Local) ---
   app.get('/api/products/barcode/:barcode', async (req, res) => {

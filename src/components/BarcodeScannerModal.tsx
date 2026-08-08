@@ -23,52 +23,69 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   const lastScannedBarcodeRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const html5QrCode = new Html5Qrcode('barcode-reader-view', {
-      verbose: false,
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-      ],
-    });
-    scannerRef.current = html5QrCode;
+    let isMounted = true;
 
     const startCamera = async () => {
+      setCameraError(null);
+      if (!isMounted) return;
+
+      const targetEl = document.getElementById('barcode-reader-view');
+      if (!targetEl) {
+        console.warn('Barcode container element not ready');
+        return;
+      }
+
+      const html5QrCode = new Html5Qrcode('barcode-reader-view', {
+        verbose: false,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+        ],
+      });
+      scannerRef.current = html5QrCode;
+
+      const qrConfig = {
+        fps: 10,
+        qrbox: { width: 260, height: 160 },
+      };
+
+      const scanSuccessCallback = (decodedText: string) => {
+        if (lastScannedBarcodeRef.current === decodedText) return;
+        lastScannedBarcodeRef.current = decodedText;
+
+        if (navigator.vibrate) {
+          navigator.vibrate(50);
+        }
+
+        handleBarcodeDetected(decodedText);
+      };
+
       try {
-        await html5QrCode.start(
-          { facingMode: 'environment' },
-          {
-            fps: 10,
-            qrbox: { width: 260, height: 160 },
-          },
-          (decodedText) => {
-            // Duplicate scan protection
-            if (lastScannedBarcodeRef.current === decodedText) return;
-            lastScannedBarcodeRef.current = decodedText;
-
-            // Trigger light haptic feedback
-            if (navigator.vibrate) {
-              navigator.vibrate(50);
-            }
-
-            handleBarcodeDetected(decodedText);
-          },
-          () => {
-            // Unrecognized frame, ignore
+        await html5QrCode.start({ facingMode: 'environment' }, qrConfig, scanSuccessCallback, () => {});
+      } catch (firstErr) {
+        console.warn('Environment camera start failed, trying fallback camera:', firstErr);
+        try {
+          await html5QrCode.start({ facingMode: 'user' }, qrConfig, scanSuccessCallback, () => {});
+        } catch (secondErr: any) {
+          if (isMounted) {
+            console.warn('All camera feeds failed:', secondErr);
+            setCameraError(
+              'Unable to access camera feed. You can enter the barcode numbers directly below.'
+            );
           }
-        );
-      } catch (err: any) {
-        console.warn('Camera failed to start:', err);
-        setCameraError(
-          'Unable to access camera stream. You can enter the barcode numbers directly below.'
-        );
+        }
       }
     };
 
-    startCamera();
+    const timer = setTimeout(() => {
+      startCamera();
+    }, 150);
 
     return () => {
+      isMounted = false;
+      clearTimeout(timer);
       if (scannerRef.current && scannerRef.current.isScanning) {
         scannerRef.current
           .stop()

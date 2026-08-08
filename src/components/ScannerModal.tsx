@@ -16,6 +16,7 @@ import {
   Disc,
 } from 'lucide-react';
 import { FoodItem } from '../types';
+import { compressImageFile } from '../lib/imageCompressor';
 
 interface ScannerModalProps {
   initialSubMode?: 'barcode' | 'photo';
@@ -64,51 +65,70 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
       return;
     }
 
-    const html5QrCode = new Html5Qrcode('unified-barcode-view', {
-      verbose: false,
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-      ],
-    });
-    scannerRef.current = html5QrCode;
-
     const startCamera = async () => {
+      setCameraError(null);
+      if (!isMounted) return;
+
+      const targetEl = document.getElementById('unified-barcode-view');
+      if (!targetEl) {
+        console.warn('Barcode view container not ready');
+        return;
+      }
+
+      const html5QrCode = new Html5Qrcode('unified-barcode-view', {
+        verbose: false,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+        ],
+      });
+      scannerRef.current = html5QrCode;
+
+      const qrConfig = {
+        fps: 10,
+        qrbox: { width: 260, height: 150 },
+      };
+
+      const scanSuccessCallback = (decodedText: string) => {
+        if (lastScannedBarcodeRef.current === decodedText) return;
+        lastScannedBarcodeRef.current = decodedText;
+
+        if (navigator.vibrate) {
+          navigator.vibrate(50);
+        }
+
+        handleBarcodeLookup(decodedText);
+      };
+
       try {
-        setCameraError(null);
-        if (!isMounted) return;
-        await html5QrCode.start(
-          { facingMode: 'environment' },
-          {
-            fps: 10,
-            qrbox: { width: 260, height: 150 },
-          },
-          (decodedText) => {
-            if (lastScannedBarcodeRef.current === decodedText) return;
-            lastScannedBarcodeRef.current = decodedText;
-
-            if (navigator.vibrate) {
-              navigator.vibrate(50);
-            }
-
-            handleBarcodeLookup(decodedText);
-          },
-          () => {}
-        );
-      } catch (err: any) {
-        if (isMounted) {
-          console.warn('Camera barcode start failed:', err);
-          setCameraError('Unable to access camera feed. Enter barcode digits manually below.');
+        // Try environment camera first
+        await html5QrCode.start({ facingMode: 'environment' }, qrConfig, scanSuccessCallback, () => {});
+      } catch (firstErr) {
+        console.warn('Environment camera start failed, trying fallback camera:', firstErr);
+        try {
+          // Fallback to user/front camera or any video input
+          await html5QrCode.start({ facingMode: 'user' }, qrConfig, scanSuccessCallback, () => {});
+        } catch (secondErr: any) {
+          if (isMounted) {
+            console.warn('All camera feeds failed:', secondErr);
+            setCameraError(
+              'Camera access restricted or unavailable. You can enter barcode numbers or snap a photo log below.'
+            );
+          }
         }
       }
     };
 
-    startCamera();
+    // Small delay to ensure DOM element is painted
+    const timer = setTimeout(() => {
+      startCamera();
+    }, 150);
 
     return () => {
       isMounted = false;
+      clearTimeout(timer);
       if (scannerRef.current) {
         if (scannerRef.current.isScanning) {
           scannerRef.current.stop().catch(() => {});
@@ -180,20 +200,21 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
   };
 
   // --- PHOTO ESTIMATION LOGIC ---
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
+      try {
+        const base64 = await compressImageFile(file, 1200, 1200, 0.82);
         setSelectedImage(base64);
         if (is3dScan) {
           trigger3DScanSim(base64);
         } else {
           analyzePhotoDirect(base64);
         }
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error('Failed to process image:', err);
+        setPhotoError('Unable to process photo file. Please try another image.');
+      }
     }
   };
 
